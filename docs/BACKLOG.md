@@ -29,12 +29,12 @@
 
 | # | Status | Task |
 |---|---|---|
-| B1 | 🔄 | src/routes/projects.js — GET/POST/DELETE /api/projects |
-| B2 | 🔄 | src/routes/agents.js — full CRUD /api/agents |
-| B3 | 🔄 | src/routes/test-cases.js — all test-case endpoints |
-| B4 | 🔄 | src/routes/environments.js — CRUD /api/environments |
-| B5 | 🔄 | src/routes/tags.js — GET/POST /api/tags |
-| B6 | 🔄 | src/routes/dashboard.js — GET /api/dashboard |
+| B1 | ✅ | src/routes/projects.js — GET/POST/DELETE /api/projects |
+| B2 | ✅ | src/routes/agents.js — full CRUD /api/agents |
+| B3 | ✅ | src/routes/test-cases.js — all test-case endpoints |
+| B4 | ✅ | src/routes/environments.js — CRUD /api/environments |
+| B5 | ✅ | src/routes/tags.js — GET/POST /api/tags |
+| B6 | ✅ | src/routes/dashboard.js — GET /api/dashboard |
 
 ---
 
@@ -42,11 +42,11 @@
 
 | # | Status | Task |
 |---|---|---|
-| C1 | ⬜ | src/routes/test-plans.js — CRUD /api/test-plans |
-| C2 | ⬜ | src/routes/test-runs.js — start + poll test runs |
-| C3 | ⬜ | src/routes/probe.js — POST /api/probe |
-| C4 | ⬜ | src/routes/git.js — all 6 git operations |
-| C5 | ⬜ | src/routes/logs.js — GET/DELETE /api/logs/:type |
+| C1 | 🔄 | src/routes/test-plans.js — CRUD /api/test-plans |
+| C2 | 🔄 | src/routes/test-runs.js — start + poll test runs |
+| C3 | 🔄 | src/routes/probe.js — POST /api/probe |
+| C4 | 🔄 | src/routes/git.js — all 6 git operations |
+| C5 | 🔄 | src/routes/logs.js — GET/DELETE /api/logs/:type |
 
 ---
 
