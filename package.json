@@ -5,12 +5,16 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "start:dev": "NODE_ENV=development electron .",
     "build": "electron-builder",
-    "lint": "node --check main.js preload.js src/server.js src/store.js src/workspace.js src/helpers.js",
-    "lint:routes": "node --check src/routes/*.js"
+    "build:win": "electron-builder --win",
+    "lint": "node --check main.js preload.js src/server.js src/store.js src/workspace.js src/helpers.js src/executor.js src/scorer.js",
+    "lint:routes": "node --check src/routes/*.js",
+    "lint:all": "npm run lint && npm run lint:routes"
   },
   "dependencies": {
     "@xenova/transformers": "^2.17.2",
+    "electron-updater": "^6.3.9",
     "express": "^4.19.2",
     "js-yaml": "^4.1.0",
     "portfinder": "^1.0.32",
@@ -29,6 +33,10 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "publish": {
+      "provider": "generic",
+      "url": "https://releases.continuia.com/agent-test-manager/"
+    },
     "files": [
       "main.js",
       "preload.js",
@@ -39,7 +47,20 @@
       "!**/__pycache__/**",
       "!**/*.py",
       "!server.py",
-      "!workspaces/**"
+      "!workspaces/**",
+      "!docs/**",
+      "!.claude/**"
+    ],
+    "extraResources": [
+      {
+        "from": "workspaces",
+        "to": "app/workspaces",
+        "filter": [
+          "**/*",
+          "!**/results/**",
+          "!**/logs/**"
+        ]
+      }
     ],
     "win": {
       "target": [
@@ -56,9 +77,10 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Agent Test Manager"
+      "shortcutName": "Agent Test Manager",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
-    "extraResources": [],
     "asarUnpack": [
       "node_modules/@xenova/transformers/**"
     ]
