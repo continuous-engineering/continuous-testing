@@ -54,10 +54,10 @@
 
 | # | Status | Task |
 |---|---|---|
-| D1 | 🔄 | Create src/scorer.js — cosine similarity via @xenova/transformers |
-| D2 | 🔄 | Replace _keyword_score with real embedding comparison |
-| D3 | 🔄 | IPC channels: scorer:ready, scorer:progress to renderer |
-| D4 | 🔄 | Add model status indicator to UI |
+| D1 | ✅ | Create src/scorer.js — cosine similarity via @xenova/transformers |
+| D2 | ✅ | Replace _keyword_score with real embedding comparison |
+| D3 | ✅ | IPC channels: scorer:ready, scorer:progress to renderer |
+| D4 | ✅ | Add model status indicator to UI |
 
 ---
 
@@ -65,7 +65,7 @@
 
 | # | Status | Task |
 |---|---|---|
-| E1 | ⬜ | electron-builder NSIS config — one-click installer |
-| E2 | ⬜ | userData workspace migration on first launch |
-| E3 | ⬜ | Auto-updater scaffold (electron-updater) |
-| E4 | ⬜ | Build + smoke test installer end-to-end |
+| E1 | 🔄 | electron-builder NSIS config — one-click installer |
+| E2 | 🔄 | userData workspace migration on first launch |
+| E3 | 🔄 | Auto-updater scaffold (electron-updater) |
+| E4 | 🔄 | Build + smoke test installer end-to-end |
