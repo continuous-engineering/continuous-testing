@@ -2,8 +2,10 @@
  * Agent test execution engine.
  * Ported from Python server.py _call_agent_sync + _execute_test.
  * Uses native Node.js fetch (Node 18+).
+ * Scoring: semantic embeddings via scorer.js (falls back to keyword overlap).
  */
 
+const scorer = require('./scorer');
 const DEFAULT_BODY_TEMPLATE = '{"messages": [{"role": "user", "content": "{{message}}"}]}';
 
 function buildAuthHeaders(agent) {
@@ -80,21 +82,6 @@ function extractResponseText(raw, responsePath = '') {
 }
 
 /**
- * Keyword overlap score (0–1). Temporary — replaced by embedding score in Bundle D.
- */
-function keywordScore(expected, actual) {
-  if (!expected) return 1.0;
-  if (!actual) return 0.0;
-  const words = s => new Set(s.toLowerCase().match(/\b\w{4,}\b/g) || []);
-  const exp = words(expected);
-  if (!exp.size) return 1.0;
-  const act = words(actual);
-  let overlap = 0;
-  for (const w of exp) if (act.has(w)) overlap++;
-  return overlap / exp.size;
-}
-
-/**
  * Call an agent endpoint and return { text, raw, elapsedMs, error }.
  */
 async function callAgent(endpoint, prompt, extraHeaders = {}, bodyTemplate = null, responsePath = '') {
@@ -154,7 +141,7 @@ async function executeTest(agent, test) {
     return { ...base, status: 'error', error, score: 0, latency_ms: Math.round(elapsedMs), actual_response: '' };
   }
 
-  const score = keywordScore(expected, text);
+  const score = await scorer.score(expected, text);
   const latencyOk = elapsedMs <= (test.expected_latency_ms || 5000);
   const passed = score >= (test.min_semantic_match || 0.75) && latencyOk;
 
@@ -201,4 +188,4 @@ async function buildRunRecord(agent, suiteType, tests, configId = null, configNa
   return run;
 }
 
-module.exports = { executeTest, buildRunRecord, callAgent, buildAuthHeaders };
+module.exports = { executeTest, buildRunRecord, callAgent, buildAuthHeaders, scorer };

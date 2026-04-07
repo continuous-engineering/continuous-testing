@@ -56,12 +56,27 @@ ipcMain.handle('app:workspace-path', () => {
   return getWorkspacesDirectory();
 });
 
+// ── Scorer warm-up ────────────────────────────────────────
+
+function warmUpScorer() {
+  const scorer = require('./src/scorer');
+  scorer.init((pct) => {
+    if (mainWindow) mainWindow.webContents.send('scorer:progress', pct);
+  }).then(() => {
+    if (mainWindow) mainWindow.webContents.send('scorer:ready');
+  }).catch(() => {
+    // Scorer warm-up failed — keyword fallback remains active, no UI update needed
+  });
+}
+
 // ── App lifecycle ──────────────────────────────────────────
 
 app.whenReady().then(async () => {
   try {
     const port = await startExpress();
     createWindow(port);
+    // Warm up scorer after window is shown so it doesn't block startup
+    mainWindow.once('ready-to-show', () => warmUpScorer());
   } catch (err) {
     console.error('Failed to start server:', err);
     app.quit();
