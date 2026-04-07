@@ -1,0 +1,9 @@
+const router = require('express').Router();
+router.get('/', (req, res) => res.json([]));
+router.post('/', (req, res) => res.status(501).json({ error: 'not implemented' }));
+router.put('/:agent_id', (req, res) => res.status(501).json({ error: 'not implemented' }));
+router.delete('/:agent_id', (req, res) => res.status(501).json({ error: 'not implemented' }));
+router.get('/:agent_id/test-cases/:suite_type', (req, res) => res.json([]));
+router.post('/:agent_id/test-cases/:suite_type', (req, res) => res.status(501).json({ error: 'not implemented' }));
+router.delete('/:agent_id/test-cases/:suite_type/:test_id', (req, res) => res.status(501).json({ error: 'not implemented' }));
+module.exports = router;
