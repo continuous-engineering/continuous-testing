@@ -7,3 +7,11 @@ run_configs:
   suite_types:
   - functional
   tags: []
+- agent_ids:
+  - agent_76c3950c
+  config_id: rc_ab4723ef
+  created_at: '2026-04-07T20:28:40.029128'
+  name: Securotuy
+  suite_types:
+  - security
+  tags: []
