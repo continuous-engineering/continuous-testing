@@ -1,124 +1,115 @@
-# AI-Test — Agent Test Manager
+# AI-Test — Agent Test Manager (Electron)
+
+Desktop app for testing AI agents. Testers download one installer and run — no Python, no Node.js, no CLI required.
 
 ## Stack
 
-- **Language:** Python 3.11
-- **Framework:** Starlette (ASGI) + Uvicorn
-- **Storage:** YAML files (no database)
-- **Frontend:** Vanilla HTML/JS/CSS in `static/` (no build step)
-- **Realtime:** WebSockets
+- **Shell:** Electron 33 (main process + Chromium renderer)
+- **Backend:** Express 4 running in Electron main process (no separate server)
+- **Storage:** YAML files via `js-yaml` (no database)
+- **Frontend:** Vanilla HTML/JS/CSS in `static/` — zero build step, zero changes from original
+- **Git ops:** `simple-git` npm package
+- **Semantic scoring:** `@xenova/transformers` (local embeddings, model cached in userData)
+- **Packaging:** `electron-builder` → Windows NSIS installer (`.exe`)
 
 ## Build Commands
 
-- **Check:** `python -m py_compile server.py`
-- **Build:** N/A (interpreted)
-- **Test:** none defined yet
-- **Run:** `python server.py`
-- **Port:** http://localhost:8000
+- **Check:**  `npm run lint`
+- **Build:**  `npm run build` (electron-builder, outputs to `dist/`)
+- **Test:**   `npm test` (none defined yet)
+- **Dev:**    `npm start` (launches Electron in dev mode with DevTools)
+- **Deploy:** Manual — distribute `dist/*.exe` installer
 
----
-
-## Architecture
-
-Backend is `server.py`. Frontend is static files in `static/` served at `/static/*`.
-
-### Layers
+## Project Layout
 
 ```
-server.py
-├── Configuration          # BASE_DIR, TESTS_DIR, RESULTS_DIR, etc.
-├── Store                  # YAML file read/write abstraction
-├── Domain models          # Agent, TestRun, Tag — plain dicts in YAML
-├── API route handlers     # /api/agents, /api/runs, /api/tags, /api/logs
-└── lifespan               # Startup/shutdown hooks
-
+package.json
+main.js                    # Electron entry — BrowserWindow, app lifecycle, IPC
+src/
+  server.js                # Express app factory — mounts all routers
+  store.js                 # YAML read/write (mirrors Python Store)
+  workspace.js             # WS class — path helpers for workspaces/agents/tests
+  scorer.js                # Semantic scoring via @xenova/transformers
+  routes/
+    projects.js            # GET/POST/DELETE /api/projects
+    agents.js              # CRUD /api/agents
+    test-cases.js          # CRUD /api/test-cases + agent-scoped variants
+    test-plans.js          # CRUD /api/test-plans
+    test-runs.js           # POST /api/test-runs, GET poll
+    environments.js        # CRUD /api/environments
+    git.js                 # status, info, commit, sync, push, smart-commit
+    dashboard.js           # GET /api/dashboard
+    logs.js                # GET/DELETE /api/logs/:type
+    probe.js               # POST /api/probe
 static/
-├── index.html             # HTML structure
-├── app.js                 # All JS — API calls, page logic, UI state
-└── styles.css             # All CSS
+  index.html               # Unchanged from original
+  app.js                   # Unchanged from original
+  styles.css               # Unchanged from original
+workspaces/                # User data — GITIGNORED for results/ and logs/
+dist/                      # electron-builder output — GITIGNORED
 ```
 
-### Storage layout
+## Storage Layout
 
-**One file per entity** — agents and tests are individual YAML files, never lists inside a single file.
+**One file per entity** — never a list inside a single file.
+**suite_type is a field inside each test YAML** — not encoded in the directory path.
 
 ```
 workspaces/
-  _global/                             # Global tests — apply to ALL agents in ALL projects
-    _shared/
-      functional/<test_id>.yaml
-      security/<test_id>.yaml
+  _global/
+    test-cases/
+      <test_id>.yaml             # suite_type: functional | security
 
   <project>/
-    agents/<agent_id>.yaml             # One file per agent
-    _shared/                           # Workspace tests — apply to all agents in this project
-      functional/<test_id>.yaml
-      security/<test_id>.yaml
-    <agent_id>/                        # Agent-level tests
-      functional/<test_id>.yaml
-      security/<test_id>.yaml
-    results/runs.yaml                  # GITIGNORED — runtime artifact
-    logs/                              # GITIGNORED — runtime artifact
+    agents/
+      <agent_id>/
+        agent.yaml
+        test-cases/
+          <test_id>.yaml
+    test-cases/
+      <test_id>.yaml
+    results/runs.yaml            # GITIGNORED
+    logs/                        # GITIGNORED
     config/
-      profiles.yaml
+      environments.yaml
       tags.yaml
-      run_configs.yaml
+      test_plans.yaml
 ```
 
-**Test hierarchy (runner collects in order):**
-1. Global → `workspaces/_global/_shared/<suite>/*.yaml`
-2. Workspace → `workspaces/<project>/_shared/<suite>/*.yaml`
-3. Agent → `workspaces/<project>/<agent_id>/<suite>/*.yaml`
+**Test collection order:** global → workspace → agent. Each result carries `_source`.
 
-Each test result carries a `_source` field: `'global' | 'workspace' | 'agent'`.
+**Reserved names:** `_global` (project), `_shared` (legacy — do not create).
 
-**Reserved names:**
-- `_global` — reserved project name for global tests
-- `_shared` — reserved agent_id for workspace/global test scope
+## Key Conventions
 
-Files are the source of truth. No in-memory state survives a restart.
+- `store.load(path)` returns `{}` if file missing — never throws on missing file
+- `store.save(path, data)` — creates parent dirs automatically
+- All route handlers are thin: load → transform → respond
+- Workspace path in production: `app.getPath('userData')/workspaces` — NOT beside the `.exe`
+- Workspace path in dev: `./workspaces` (relative to project root)
+- Active project passed via `X-Project` request header (unchanged from original)
+- Semantic scorer lazy-loads — model downloads once on first use, cached in `app.getPath('userData')/models`
+- `_keyword_score` removed — replaced by cosine similarity from sentence embeddings
 
-### Key constraints
+## Electron IPC (non-API channels)
 
-- **YAML only** — no SQLite, no JSON blobs, no external DB
-- **One file per entity** — never append to a list inside a YAML; create/delete individual files
-- **No frontend build step** — all JS is vanilla, no bundler
-- **Windows-safe output** — no emoji in `print()` calls (cp1252 codec limitation)
-- **results/ and logs/ are gitignored** — never commit runtime artifacts
+| Channel | Direction | Purpose |
+|---|---|---|
+| `scorer:ready` | main → renderer | Phi model finished loading |
+| `scorer:progress` | main → renderer | Model download % |
+| `app:workspace-path` | main → renderer | Path to workspaces dir (shown in UI) |
 
----
+## Packaging Notes
 
-## How to Write Things
-
-### Adding a new API endpoint
-
-1. Write the async handler function near the relevant domain section
-2. Add a `Route(...)` entry to the `routes` list at the bottom of the file
-3. Keep handlers thin — load from `Store`, transform, return `JSONResponse`
-
-```python
-async def get_something(request):
-    data = Store.load(SOME_FILE)
-    return JSONResponse(data.get("items", []))
-```
-
-### Adding a new UI section
-
-Find the relevant `<!-- Page -->` comment in `static/index.html` and add the HTML there. Add the corresponding JS function to `static/app.js` and wire it up in `switchPage()`.
-
-### Modifying storage
-
-`Store.load(path)` returns a dict (empty dict if file missing). `Store.save(path, data)` writes it back.
-
-For agents: read/write `WS.agent_file(agent_id)` — one dict per file (no list wrapper).
-For tests: read/write `WS.test_file(agent_id, suite_type, test_id)` — one dict per file.
-To list tests: glob `WS.suite_dir(agent_id, suite_type) / "*.yaml"`, skip `baseline.yaml`.
-To collect for a run: use `_collect_tests(project, agent_id, suite_type)` — returns all 3 levels.
-
----
+- `electron-builder` target: `nsis` (Windows installer)
+- `workspaces/` is NOT bundled — lives in `userData` so it survives app updates
+- Model file (`~400MB`) downloaded on first launch, not bundled in installer
+- Sign with `CSC_LINK` / `CSC_KEY_PASSWORD` env vars for Windows code signing
 
 ## Gotchas
 
-- **Port conflicts:** if 8000 is busy, kill the old process with `powershell -Command "Stop-Process -Id <PID> -Force"`
-- **Emoji in print():** Windows cp1252 terminal will crash on non-ASCII in `print()`. Use plain ASCII in all server-side output.
-- **YAML_AVAILABLE guard:** yaml import is optional — check `YAML_AVAILABLE` before any yaml call.
+- **userData path:** never use `__dirname` for workspace path in production — use `app.getPath('userData')`
+- **Preload script required:** renderer cannot use `require()` — all Node access goes through `contextBridge`
+- **Express port:** pick a random available port at startup (use `portfinder` or bind to `0`); pass port to renderer via IPC before loading the URL
+- **YAML_AVAILABLE guard:** removed — `js-yaml` is a hard dependency, not optional
+- **Emoji safe:** no restrictions on Node.js stdout encoding (unlike Python cp1252)
