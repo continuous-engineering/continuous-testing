@@ -1,9 +1,18 @@
 __pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Electron build output
+dist/
 
 # Runtime artifacts — never committed
 workspaces/*/results/
 workspaces/*/logs/
 
-# Legacy top-level dirs (if they exist from old layout)
-results/
-logs/
+# Electron userData sentinel (local only)
+.migrated
+
+# Dev logs
+npm-debug.log*
