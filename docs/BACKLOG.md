@@ -42,11 +42,11 @@
 
 | # | Status | Task |
 |---|---|---|
-| C1 | 🔄 | src/routes/test-plans.js — CRUD /api/test-plans |
-| C2 | 🔄 | src/routes/test-runs.js — start + poll test runs |
-| C3 | 🔄 | src/routes/probe.js — POST /api/probe |
-| C4 | 🔄 | src/routes/git.js — all 6 git operations |
-| C5 | 🔄 | src/routes/logs.js — GET/DELETE /api/logs/:type |
+| C1 | ✅ | src/routes/test-plans.js — CRUD /api/test-plans |
+| C2 | ✅ | src/routes/test-runs.js — start + poll test runs |
+| C3 | ✅ | src/routes/probe.js — POST /api/probe |
+| C4 | ✅ | src/routes/git.js — all 6 git operations |
+| C5 | ✅ | src/routes/logs.js — GET/DELETE /api/logs/:type |
 
 ---
 
@@ -54,10 +54,10 @@
 
 | # | Status | Task |
 |---|---|---|
-| D1 | ⬜ | Create src/scorer.js — cosine similarity via @xenova/transformers |
-| D2 | ⬜ | Replace _keyword_score with real embedding comparison |
-| D3 | ⬜ | IPC channels: scorer:ready, scorer:progress to renderer |
-| D4 | ⬜ | Add model status indicator to UI |
+| D1 | 🔄 | Create src/scorer.js — cosine similarity via @xenova/transformers |
+| D2 | 🔄 | Replace _keyword_score with real embedding comparison |
+| D3 | 🔄 | IPC channels: scorer:ready, scorer:progress to renderer |
+| D4 | 🔄 | Add model status indicator to UI |
 
 ---
 
