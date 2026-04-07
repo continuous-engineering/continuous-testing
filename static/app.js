@@ -1,6 +1,22 @@
 // ── Active project (persisted) ────────────────────────────
 window._activeProject = localStorage.getItem('activeProject') || 'default';
 
+// ── Electron scorer IPC ───────────────────────────────────
+if (window.electronAPI) {
+    window.electronAPI.onScorerProgress((pct) => {
+        const dot = document.getElementById('scorer-dot');
+        const label = document.getElementById('scorer-label');
+        if (dot) dot.style.background = '#f39c12';
+        if (label) label.textContent = `Loading model... ${pct}%`;
+    });
+    window.electronAPI.onScorerReady(() => {
+        const dot = document.getElementById('scorer-dot');
+        const label = document.getElementById('scorer-label');
+        if (dot) dot.style.background = '#27ae60';
+        if (label) label.textContent = 'Ready';
+    });
+}
+
 const API = {
     baseURL: '/api',
 
