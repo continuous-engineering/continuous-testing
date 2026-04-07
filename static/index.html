@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Test Manager</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <h1>&#x1F680; Test Manager</h1>
+
+            <!-- Project selector -->
+            <div style="margin-bottom:20px;padding-bottom:15px;border-bottom:1px solid rgba(255,255,255,0.15);">
+                <div class="nav-section-title">Project</div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <select id="project-select" onchange="switchProject(this.value)" style="flex:1;padding:6px 8px;border-radius:4px;border:none;background:#34495e;color:#fff;font-size:13px;cursor:pointer;"></select>
+                    <button onclick="openProjectEditor()" title="New Project" style="background:#3498db;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;">+</button>
+                </div>
+            </div>
+
+            <div class="nav-section" id="nav-section-core">
+                <div class="nav-section-title">Core</div>
+                <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')">
+                    <span>&#x1F4CA;</span> Dashboard
+                </div>
+                <div class="nav-item" id="nav-agents" onclick="switchPage('agents')">
+                    <span>&#x1F916;</span> Agents
+                </div>
+                <div class="nav-item" id="nav-test-cases" onclick="switchPage('test-cases')">
+                    <span>&#x1F4DD;</span> Test Cases
+                </div>
+            </div>
+
+            <div class="nav-section" id="nav-section-execution">
+                <div class="nav-section-title">Execution</div>
+                <div class="nav-item" id="nav-test-plans" onclick="switchPage('test-plans')">
+                    <span>&#x1F3AF;</span> Test Plans
+                </div>
+                <div class="nav-item" id="nav-test-runs" onclick="switchPage('test-runs')">
+                    <span>&#x25B6;</span> Test Runs
+                </div>
+                <div class="nav-item" id="nav-results" onclick="switchPage('results')">
+                    <span>&#x2705;</span> Results
+                </div>
+            </div>
+
+            <div class="nav-section" id="nav-section-management">
+                <div class="nav-section-title">Management</div>
+                <div class="nav-item" id="nav-environments" onclick="switchPage('environments')">
+                    <span>&#x2699;</span> Environments
+                </div>
+                <div class="nav-item" id="nav-tags" onclick="switchPage('tags')">
+                    <span>&#x1F3F7;&#xFE0F;</span> Tags
+                </div>
+                <div class="nav-item" id="nav-reports" onclick="switchPage('reports')">
+                    <span>&#x1F4C8;</span> Reports
+                </div>
+                <div class="nav-item" id="nav-logs" onclick="switchPage('logs')">
+                    <span>&#x1F4CB;</span> Logs
+                </div>
+                <div class="nav-item" id="git-nav-item" onclick="switchPage('git')">
+                    <span>&#10003;</span> Git Commit
+                    <span id="git-dirty-dot" style="display:none;background:#e74c3c;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px;vertical-align:middle;" title="Uncommitted changes"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Header -->
+            <div class="header" id="header">
+                <h2 id="page-title">Dashboard</h2>
+                <div class="header-actions" id="header-actions" style="display:flex;align-items:center;gap:10px;">
+                    <label style="font-size:12px;color:#888;font-weight:600;">ENVIRONMENT</label>
+                    <select id="active-environment-select" onchange="setActiveEnvironment(this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #ddd;font-size:13px;min-width:140px;">
+                        <option value="">No Environment</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Pages -->
+            <div class="content">
+
+                <!-- Dashboard Page -->
+                <div id="dashboard" class="page active">
+                    <div class="stats-section-label">Overview</div>
+                    <div class="stats-grid">
+                        <div class="stat-card stat-card-link" onclick="highlightProjectSelector()" title="Switch or create workspaces">
+                            <div class="stat-link-hint">&#x1F4C2;</div>
+                            <div class="stat-label">Workspaces</div>
+                            <div class="stat-value" id="stat-workspaces">0</div>
+                        </div>
+                        <div class="stat-card stat-card-link" onclick="switchPage('agents')" title="Go to Agents">
+                            <div class="stat-link-hint">&#x1F916;</div>
+                            <div class="stat-label">Agents</div>
+                            <div class="stat-value" id="stat-agents">0</div>
+                        </div>
+                        <div class="stat-card stat-card-link" onclick="switchPage('test-cases')" title="Go to Test Cases">
+                            <div class="stat-link-hint">&#x1F4DD;</div>
+                            <div class="stat-label">Total Tests</div>
+                            <div class="stat-value" id="stat-tests">0</div>
+                        </div>
+                        <div class="stat-card stat-card-link" onclick="switchPage('test-runs')" title="Go to Test Runs">
+                            <div class="stat-link-hint">&#x25B6;</div>
+                            <div class="stat-label">Total Runs</div>
+                            <div class="stat-value" id="stat-test-runs">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stats-section-label">Test Health</div>
+                    <div class="stats-grid">
+                        <div class="stat-card stat-card-link" onclick="switchToSuite('functional')" title="View Functional Test Cases">
+                            <div class="stat-link-hint">&#x2699;</div>
+                            <div class="stat-label">Functional Tests</div>
+                            <div class="stat-value stat-value-blue" id="stat-functional">0</div>
+                        </div>
+                        <div class="stat-card stat-card-link" onclick="switchToSuite('security')" title="View Security Tests">
+                            <div class="stat-link-hint">&#x1F512;</div>
+                            <div class="stat-label">Security Tests</div>
+                            <div class="stat-value stat-value-orange" id="stat-security">0</div>
+                        </div>
+                        <div class="stat-card stat-card-link" onclick="switchPage('results')" title="View Results">
+                            <div class="stat-link-hint">&#x2705;</div>
+                            <div class="stat-label">Total Passed</div>
+                            <div class="stat-value stat-value-green" id="stat-passed">0</div>
+                        </div>
+                        <div class="stat-card stat-card-link" onclick="switchPage('results')" title="View Results">
+                            <div class="stat-link-hint">&#x274C;</div>
+                            <div class="stat-label">Total Failed</div>
+                            <div class="stat-value stat-value-red" id="stat-failed">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid" style="grid-template-columns: 1fr; max-width: 260px; margin-bottom: 24px;">
+                        <div class="stat-card stat-card-link" onclick="switchPage('reports')" title="View Reports">
+                            <div class="stat-link-hint">&#x1F4C8;</div>
+                            <div class="stat-label">Avg Pass Rate</div>
+                            <div class="stat-value" id="stat-passrate">-</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Recent Runs</h3>
+                            <button class="btn success" onclick="switchPage('test-runs')">View All</button>
+                        </div>
+                        <div class="card-content">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Agent</th>
+                                        <th>Suite</th>
+                                        <th>Status</th>
+                                        <th>Results</th>
+                                        <th>Duration</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-runs"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agents Page -->
+                <div id="agents" class="page">
+                    <button class="btn success" onclick="openAgentEditor()">+ Add Agent</button>
+                    <div class="card" style="margin-top: 15px;">
+                        <div class="card-content">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Endpoint</th>
+                                        <th>Model</th>
+                                        <th>Tests</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="agents-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Cases Page -->
+                <div id="test-cases" class="page">
+                    <div class="select-row" style="flex-wrap:wrap;">
+                        <select id="tests-scope-filter" onchange="loadTestCasesPage()">
+                            <option value="">All Scopes</option>
+                            <option value="global">Global</option>
+                            <option value="workspace">Workspace</option>
+                            <option value="agent">Agent-Specific</option>
+                        </select>
+                        <select id="tests-suite-filter" onchange="loadTestCasesPage()">
+                            <option value="">All Suites</option>
+                            <option value="functional">Functional</option>
+                            <option value="security">Security</option>
+                        </select>
+                        <select id="tests-category-filter" onchange="loadTestCasesPage()">
+                            <option value="">All Categories</option>
+                        </select>
+                        <input type="text" id="tests-tag-input" placeholder="Tag filter..." style="padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;min-width:140px;" oninput="debounceLoadTestCases()">
+                        <button class="btn success" onclick="openTestEditor()">+ Add Test</button>
+                    </div>
+                    <div class="card" style="margin-top:10px;">
+                        <div class="card-content" style="padding:0;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Scope</th>
+                                        <th>Suite</th>
+                                        <th>Category</th>
+                                        <th>Priority</th>
+                                        <th>Tags</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tests-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Plans Page -->
+                <div id="test-plans" class="page">
+                    <button class="btn success" onclick="openTestPlanModal()">+ New Test Plan</button>
+                    <div class="card" style="margin-top:15px;">
+                        <div class="card-content" style="padding:0;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Agents</th>
+                                        <th>Suites</th>
+                                        <th>Tag Filter</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="test-plans-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Runs Page -->
+                <div id="test-runs" class="page">
+                    <div class="select-row">
+                        <select id="test-runs-agent-select" onchange="loadTestRunsPage()">
+                            <option value="">All Agents</option>
+                        </select>
+                        <select id="test-runs-plan-select" onchange="loadTestRunsPage()">
+                            <option value="">All Plans</option>
+                        </select>
+                        <button class="btn success" onclick="openNewTestRunModal()">+ New Run</button>
+                        <button class="btn" onclick="loadTestRunsPage()">Refresh</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-content" style="padding:0;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Plan</th>
+                                        <th>Agent</th>
+                                        <th>Suite</th>
+                                        <th>Status</th>
+                                        <th>Results</th>
+                                        <th>Pass Rate</th>
+                                        <th>Duration</th>
+                                        <th>Started</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="test-runs-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Page -->
+                <div id="results" class="page">
+                    <div class="select-row">
+                        <select id="results-test-run-select" onchange="renderRunDetail(this.value)">
+                            <option value="">Select Run...</option>
+                        </select>
+                    </div>
+                    <div id="results-content"></div>
+                </div>
+
+                <!-- Environments Page -->
+                <div id="environments" class="page">
+                    <div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-start;">
+                        <div style="width:220px;flex-shrink:0;">
+                            <button class="btn success" onclick="newEnvironment()" style="width:100%;margin-bottom:10px;">+ New Environment</button>
+                            <div id="environments-list"></div>
+                        </div>
+                        <div class="card" style="flex:1;" id="environment-editor-card">
+                            <div class="card-header">
+                                <input type="hidden" id="ee-id">
+                                <input type="text" id="ee-name" placeholder="Environment name (e.g. dev, staging, prod)" style="font-size:16px;font-weight:600;border:none;border-bottom:2px solid #3498db;padding:4px 0;width:260px;outline:none;">
+                                <div style="display:flex;gap:8px;">
+                                    <button class="btn success" onclick="saveEnvironment()">Save</button>
+                                    <button class="btn danger" onclick="deleteEnvironment()" id="ee-delete-btn" style="display:none;">Delete</button>
+                                </div>
+                            </div>
+                            <div class="card-content">
+                                <p style="color:#888;font-size:13px;margin-bottom:12px;">Use <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">{{variable_name}}</code> in prompts and agent endpoints to substitute values from the active environment.</p>
+                                <table id="ee-vars-table" style="width:100%;">
+                                    <thead><tr><th style="width:40%">Variable</th><th style="width:55%">Value</th><th style="width:5%"></th></tr></thead>
+                                    <tbody id="ee-vars-body"></tbody>
+                                </table>
+                                <button class="btn" onclick="addVarRow()" style="margin-top:10px;">+ Add Variable</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Git Page -->
+                <div id="git" class="page">
+                    <!-- Sync status bar -->
+                    <div id="git-sync-bar" style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:#eaf4fb;border-radius:8px;margin-bottom:16px;font-size:13px;">
+                        <span id="git-branch-label" style="font-weight:600;color:#2c3e50;">branch: —</span>
+                        <span id="git-ahead-behind" style="color:#666;"></span>
+                        <span style="flex:1;"></span>
+                        <span id="git-last-sync" style="color:#888;"></span>
+                        <div id="git-sync-progress" style="display:none;width:120px;height:4px;background:#ddd;border-radius:2px;overflow:hidden;">
+                            <div id="git-sync-bar-inner" style="height:100%;background:#3498db;width:0%;transition:width 0.3s;animation:syncSlide 1.2s linear infinite;"></div>
+                        </div>
+                        <button class="btn" onclick="doGitSync()" id="git-sync-btn" style="font-size:12px;padding:5px 12px;">&#8635; Sync Now</button>
+                    </div>
+                    <style>@keyframes syncSlide{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}</style>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Commit Changes</h3>
+                            <button class="btn" onclick="loadGitStatus()">Refresh</button>
+                        </div>
+                        <div class="card-content">
+                            <div style="margin-bottom:16px;">
+                                <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:6px;">CHANGED FILES</div>
+                                <pre id="git-status" style="background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:6px;font-size:13px;min-height:80px;overflow-x:auto;">Loading...</pre>
+                            </div>
+                            <div style="margin-bottom:16px;">
+                                <label style="font-size:13px;font-weight:600;color:#555;">COMMIT MESSAGE</label>
+                                <textarea id="git-message" placeholder="Describe what changed (e.g. Add security tests for auth endpoints)" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;min-height:80px;font-family:inherit;box-sizing:border-box;"></textarea>
+                            </div>
+                            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                                <button class="btn success" onclick="doSmartCommit()" style="font-weight:600;" title="Commit each changed scope separately, rebase, then push">Smart Commit + Push</button>
+                                <button class="btn" onclick="doGitCommit()" style="font-size:12px;" title="Single commit, no push">Commit only</button>
+                                <span id="git-commit-status" style="font-size:13px;color:#888;"></span>
+                            </div>
+                            <!-- Smart commit breakdown -->
+                            <div id="git-commits-panel" style="display:none;margin-top:14px;">
+                                <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:6px;">COMMIT BREAKDOWN</div>
+                                <div id="git-commits-list"></div>
+                            </div>
+                            <pre id="git-output" style="margin-top:14px;background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:6px;font-size:13px;display:none;overflow-x:auto;white-space:pre-wrap;"></pre>
+                            <!-- Conflict report -->
+                            <div id="git-conflict-panel" style="display:none;margin-top:14px;padding:14px;background:#fdf2f2;border:1px solid #f5c6cb;border-radius:6px;">
+                                <div style="font-weight:600;color:#c0392b;margin-bottom:8px;">Sync conflict detected — rebase aborted, your files are safe</div>
+                                <div style="font-size:13px;color:#555;margin-bottom:8px;">These files conflict with remote changes. To resolve: sync again after the remote is updated, or ask your team lead to merge manually.</div>
+                                <ul id="git-conflict-list" style="font-family:monospace;font-size:13px;color:#c0392b;margin:0;padding-left:18px;"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tags Page -->
+                <div id="tags" class="page">
+                    <button class="btn success" onclick="openTagEditor()">+ Add Label</button>
+                    <div id="tags-list" style="margin-top: 15px;"></div>
+                </div>
+
+                <!-- Reports Page -->
+                <div id="reports" class="page">
+                    <div class="select-row">
+                        <select id="reports-agent-select" onchange="loadReportsPage()">
+                            <option value="">Select Agent...</option>
+                        </select>
+                        <input type="number" id="reports-days" value="30" placeholder="Days" style="max-width: 100px;">
+                        <button class="btn" onclick="loadReportsPage()">Load</button>
+                    </div>
+                    <div id="reports-content"></div>
+                </div>
+
+                <!-- Logs Page -->
+                <div id="logs" class="page">
+                    <div class="select-row">
+                        <select id="logs-type" onchange="loadLogsPage()">
+                            <option value="server">Server</option>
+                            <option value="runs">Runs</option>
+                            <option value="errors">Errors</option>
+                        </select>
+                        <button class="btn" onclick="loadLogsPage()">Load</button>
+                        <button class="btn danger" onclick="clearLogsPage()">Clear</button>
+                    </div>
+                    <div class="log-output" id="logs-content">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Full-Screen Editor -->
+    <div id="agent-overlay" style="display:none;position:fixed;inset:0;background:#f5f5f5;z-index:1000;flex-direction:column;overflow-y:auto;">
+        <div style="background:#2c3e50;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button class="btn" onclick="closeAgentEditor()" style="background:#e74c3c;color:#fff;border:none;">&#8592; Back</button>
+            <span id="agent-modal-title" style="font-weight:600;font-size:17px;">Add Agent</span>
+            <div style="flex:1;"></div>
+            <button class="btn success" onclick="saveAgent()" style="font-weight:600;">Save Agent</button>
+        </div>
+        <div style="max-width:640px;margin:32px auto;width:100%;padding:0 24px 48px;display:flex;flex-direction:column;gap:20px;">
+            <input type="hidden" id="agent-id">
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Agent Name</label>
+                <input type="text" id="agent-name" placeholder="e.g. Production Bot, Staging API" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit;">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Endpoint URL</label>
+                <input type="text" id="agent-endpoint" placeholder="http://localhost:8000" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Model Version</label>
+                <input type="text" id="agent-model" placeholder="v1.0" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Auth Type</label>
+                <select id="agent-auth-type" onchange="toggleAuthFields()" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                    <option value="none">None</option>
+                    <option value="bearer">Bearer Token</option>
+                    <option value="basic">Basic Auth (user:pass)</option>
+                    <option value="api_key">API Key Header</option>
+                </select>
+            </div>
+            <div id="auth-header-group" style="display:none;">
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Header Name</label>
+                <input type="text" id="agent-auth-header" placeholder="X-API-Key" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+            </div>
+            <div id="auth-value-group" style="display:none;">
+                <label id="agent-auth-value-label" style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Token / Key</label>
+                <input type="password" id="agent-auth-value" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Request Body Template</label>
+                <p style="font-size:12px;color:#888;margin-bottom:8px;">Use <code style="background:#eee;padding:1px 5px;border-radius:3px;">{{message}}</code> where the test prompt should go. Leave empty to use the OpenAI Chat Completions format (default).</p>
+                <textarea id="agent-body-template" rows="8" placeholder='Leave empty for default (OpenAI format):&#10;{"messages": [{"role": "user", "content": "{{message}}"}]}&#10;&#10;Custom example:&#10;{"appid": "abc123", "input": {"query": "{{message}}"}, "user_id": "xyz"}' style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:monospace;resize:vertical;line-height:1.5;"></textarea>
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Response Field</label>
+                <p style="font-size:12px;color:#888;margin-bottom:8px;">Dot-notation path to extract the actual text from the response JSON. Leave empty for auto-detection.</p>
+                <input type="text" id="agent-response-path" placeholder="e.g.  msg  &nbsp;&nbsp;  choices.0.message.content  &nbsp;&nbsp;  data.response" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;">
+                <p style="font-size:12px;color:#888;margin-top:6px;">Examples: <code style="background:#eee;padding:1px 4px;border-radius:3px;">msg</code> &nbsp; <code style="background:#eee;padding:1px 4px;border-radius:3px;">choices.0.message.content</code> &nbsp; <code style="background:#eee;padding:1px 4px;border-radius:3px;">output.text</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-screen Test Editor -->
+    <div id="test-editor-overlay" style="display:none; position:fixed; inset:0; background:#f5f5f5; z-index:1000; flex-direction:column;">
+        <!-- Top bar -->
+        <div style="background:#2c3e50; color:#fff; padding:10px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <button class="btn" onclick="closeTestEditor()" style="background:#e74c3c; color:#fff; border:none;">&#8592; Back</button>
+            <span id="te-title" style="font-weight:600; font-size:16px;">New Test</span>
+            <div style="flex:1;"></div>
+            <input type="hidden" id="te-editing-id">
+            <input type="text" id="te-id" placeholder="test_id e.g. disc_001" style="width:160px; padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+            <input type="text" id="te-name" placeholder="Test name" style="width:200px; padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+            <select id="te-scope" onchange="onScopeChange()" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px; background:#3d5166; color:#fff; font-weight:600;">
+                <option value="global">Global</option>
+                <option value="workspace">Workspace</option>
+                <option value="agent">Agent-Specific</option>
+            </select>
+            <span id="te-agent-wrap" style="display:none;">
+                <select id="te-agent" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+                    <option value="">Select Agent...</option>
+                </select>
+            </span>
+            <select id="te-probe-agent" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px; background:#2c3e50; color:#aaa;">
+                <option value="">Try against agent...</option>
+            </select>
+            <select id="te-suite" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+                <option value="functional">Functional</option>
+                <option value="security">Security</option>
+            </select>
+            <input type="text" id="te-category" placeholder="Category" style="width:110px; padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+            <select id="te-priority" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+                <option>medium</option>
+                <option>critical</option>
+                <option>high</option>
+                <option>low</option>
+            </select>
+            <input type="text" id="te-tags" placeholder="tag1, tag2" style="width:140px; padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
+            <button class="btn success" onclick="saveTestFromEditor()" style="background:#27ae60; color:#fff; border:none; font-weight:600;">Save Test</button>
+        </div>
+        <!-- Editor panes -->
+        <div style="flex:1; display:flex; gap:0; overflow:hidden;">
+            <!-- Prompt -->
+            <div style="flex:1; display:flex; flex-direction:column; border-right:2px solid #ddd;">
+                <div style="background:#34495e; color:#ecf0f1; padding:8px 16px; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:space-between;">
+                    <span>User Prompt</span>
+                    <button id="te-try-btn" onclick="runProbe()" style="background:#e67e22; color:#fff; border:none; padding:5px 14px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600;">&#9654; Try It</button>
+                </div>
+                <textarea id="te-prompt" style="flex:1; resize:none; border:none; padding:16px; font-size:14px; font-family:monospace; line-height:1.6; outline:none; background:#fff;" placeholder="Enter the user prompt here..."></textarea>
+            </div>
+            <!-- Expected -->
+            <div style="flex:1; display:flex; flex-direction:column; border-right:2px solid #ddd;">
+                <div style="background:#34495e; color:#ecf0f1; padding:8px 16px; font-size:13px; font-weight:600;">Expected Response</div>
+                <textarea id="te-expected" style="flex:1; resize:none; border:none; padding:16px; font-size:14px; font-family:monospace; line-height:1.6; outline:none; background:#fff;" placeholder="What should the agent respond with? (used for pass/fail comparison in full runs)"></textarea>
+            </div>
+            <!-- Actual / Probe result -->
+            <div style="flex:1; display:flex; flex-direction:column;">
+                <div style="background:#34495e; color:#ecf0f1; padding:8px 16px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span>Actual Response</span>
+                    <span id="te-probe-status" style="font-size:12px; opacity:0.7;"></span>
+                    <div style="flex:1;"></div>
+                    <div id="te-format-tabs" style="display:none; gap:4px; display:flex;">
+                        <button onclick="setResponseFormat('auto')"   id="rfmt-auto"     class="rfmt-btn rfmt-active">Auto</button>
+                        <button onclick="setResponseFormat('json')"   id="rfmt-json"     class="rfmt-btn">JSON</button>
+                        <button onclick="setResponseFormat('text')"   id="rfmt-text"     class="rfmt-btn">Text</button>
+                        <button onclick="setResponseFormat('raw')"    id="rfmt-raw"      class="rfmt-btn">Raw</button>
+                        <button onclick="setResponseFormat('markdown')" id="rfmt-markdown" class="rfmt-btn">MD</button>
+                    </div>
+                </div>
+                <div id="te-actual" style="flex:1; padding:16px; font-size:13px; font-family:monospace; line-height:1.6; overflow-y:auto; background:#fafafa; white-space:pre-wrap; color:#2c3e50;">Hit "Try It" to send the prompt to the selected agent and see the raw response here.</div>
+                <style>
+                    .rfmt-btn { background:rgba(255,255,255,0.12); border:none; color:#ecf0f1; padding:3px 10px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:600; }
+                    .rfmt-btn:hover { background:rgba(255,255,255,0.22); }
+                    .rfmt-btn.rfmt-active { background:#3498db; color:#fff; }
+                </style>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Full-Screen Editor -->
+    <div id="tag-overlay" style="display:none;position:fixed;inset:0;background:#f5f5f5;z-index:1000;flex-direction:column;overflow-y:auto;">
+        <div style="background:#2c3e50;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button class="btn" onclick="closeTagEditor()" style="background:#e74c3c;color:#fff;border:none;">&#8592; Back</button>
+            <span style="font-weight:600;font-size:17px;">Add Label</span>
+            <div style="flex:1;"></div>
+            <button class="btn success" onclick="saveTag()" style="font-weight:600;">Save Label</button>
+        </div>
+        <div style="max-width:480px;margin:32px auto;width:100%;padding:0 24px 48px;display:flex;flex-direction:column;gap:20px;">
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Label Name</label>
+                <input type="text" id="tag-name" placeholder="e.g. auth, critical, smoke" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit;">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Color</label>
+                <input type="text" id="tag-color" placeholder="#3498db" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;">
+            </div>
+        </div>
+    </div>
+
+    <!-- New Test Run Full-Screen -->
+    <div id="run-overlay" style="display:none;position:fixed;inset:0;background:#f5f5f5;z-index:1000;flex-direction:column;overflow-y:auto;">
+        <div style="background:#2c3e50;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button class="btn" onclick="closeTestRunEditor()" style="background:#e74c3c;color:#fff;border:none;">&#8592; Back</button>
+            <span style="font-weight:600;font-size:17px;">New Test Run</span>
+            <div style="flex:1;"></div>
+            <button class="btn success" id="run-start-btn" onclick="startTestRun()" style="font-weight:600;">Start Run</button>
+            <span id="run-modal-status" style="font-size:13px;color:#aaa;"></span>
+        </div>
+        <div style="max-width:720px;margin:32px auto;width:100%;padding:0 24px 48px;display:flex;flex-direction:column;gap:28px;">
+            <!-- Mode toggle -->
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Run Mode</label>
+                <div style="display:flex;border-radius:8px;overflow:hidden;border:2px solid #ddd;width:fit-content;">
+                    <button id="run-tab-config" onclick="setTestRunMode('config')" style="padding:10px 28px;border:none;background:#3498db;color:#fff;cursor:pointer;font-weight:600;font-size:14px;">From Test Plan</button>
+                    <button id="run-tab-quick" onclick="setTestRunMode('quick')" style="padding:10px 28px;border:none;background:#ecf0f1;color:#555;cursor:pointer;font-weight:600;font-size:14px;">Quick Run</button>
+                </div>
+            </div>
+            <!-- Test Plan mode -->
+            <div id="run-mode-config">
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Test Plan</label>
+                <select id="test-plan-pick" onchange="previewTestPlan(this.value)" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                    <option value="">Select a saved test plan...</option>
+                </select>
+                <div id="test-plan-preview" style="display:none;background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px;font-size:13px;color:#555;margin-top:12px;line-height:1.8;"></div>
+            </div>
+            <!-- Quick run mode -->
+            <div id="run-mode-quick" style="display:none;">
+                <div style="display:flex;flex-direction:column;gap:20px;">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Agent</label>
+                        <select id="run-agent-select" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                            <option value="">Select Agent...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Suite</label>
+                        <select id="run-suite-select" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                            <option value="functional">Functional</option>
+                            <option value="security">Security</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Plan Full-Screen Editor -->
+    <div id="test-plan-overlay" style="display:none;position:fixed;inset:0;background:#f5f5f5;z-index:1000;flex-direction:column;overflow-y:auto;">
+        <!-- Top bar -->
+        <div style="background:#2c3e50;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button class="btn" onclick="closeTestPlanEditor()" style="background:#e74c3c;color:#fff;border:none;">&#8592; Back</button>
+            <span id="tp-modal-title" style="font-weight:600;font-size:17px;">New Test Plan</span>
+            <div style="flex:1;"></div>
+            <button class="btn success" onclick="saveTestPlan()" style="font-weight:600;">Save Test Plan</button>
+        </div>
+
+        <!-- Body -->
+        <div style="max-width:860px;margin:32px auto;width:100%;padding:0 24px 48px;display:flex;flex-direction:column;gap:28px;">
+            <input type="hidden" id="rc-id">
+
+            <!-- Name -->
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Plan Name</label>
+                <input type="text" id="rc-name" placeholder="e.g. Nightly Smoke, Auth Regression, Security Baseline"
+                       style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit;">
+            </div>
+
+            <!-- Suite Types -->
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Suite Types</label>
+                <div style="display:flex;gap:16px;">
+                    <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;background:#fff;border:2px solid #ddd;border-radius:8px;padding:10px 20px;transition:border-color .15s;" id="rc-suite-functional-wrap">
+                        <input type="checkbox" id="rc-suite-functional" checked onchange="document.getElementById('rc-suite-functional-wrap').style.borderColor=this.checked?'#3498db':'#ddd'"> Functional
+                    </label>
+                    <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;background:#fff;border:2px solid #ddd;border-radius:8px;padding:10px 20px;transition:border-color .15s;" id="rc-suite-security-wrap">
+                        <input type="checkbox" id="rc-suite-security" onchange="document.getElementById('rc-suite-security-wrap').style.borderColor=this.checked?'#3498db':'#ddd'"> Security
+                    </label>
+                </div>
+            </div>
+
+            <!-- Agent Selection -->
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Agents</label>
+                <p style="font-size:13px;color:#888;margin-bottom:12px;">Select agents to include — leave all unchecked to run against every agent.</p>
+                <div id="rc-agents-checks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;"></div>
+            </div>
+
+            <!-- Tag Filter -->
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Test Tag Filter</label>
+                <p style="font-size:13px;color:#888;margin-bottom:8px;">Only run test cases that have at least one of these tags. Leave empty to run all tests.</p>
+                <input type="text" id="rc-tags" placeholder="auth, critical, smoke"
+                       style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Full-Screen -->
+    <div id="project-overlay" style="display:none;position:fixed;inset:0;background:#f5f5f5;z-index:1000;flex-direction:column;overflow-y:auto;">
+        <div style="background:#2c3e50;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button class="btn" onclick="closeProjectEditor()" style="background:#e74c3c;color:#fff;border:none;">&#8592; Back</button>
+            <span style="font-weight:600;font-size:17px;">New Project</span>
+            <div style="flex:1;"></div>
+            <button class="btn success" onclick="createProject()" style="font-weight:600;">Create Project</button>
+        </div>
+        <div style="max-width:480px;margin:32px auto;width:100%;padding:0 24px 48px;display:flex;flex-direction:column;gap:20px;">
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Project Name</label>
+                <input type="text" id="new-project-name" placeholder="e.g. ecommerce, support-bot" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit;" onkeydown="if(event.key==='Enter')createProject()">
+                <p style="font-size:12px;color:#888;margin-top:6px;">Used as the folder name — lowercase letters, numbers, hyphens.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" style="position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
+
+    <!-- Custom confirm dialog -->
+    <div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9998;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:10px;padding:28px 32px;min-width:320px;max-width:440px;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+            <div id="confirm-msg" style="font-size:15px;color:#2c3e50;margin-bottom:22px;line-height:1.5;"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button id="confirm-cancel-btn" class="btn" style="min-width:80px;">Cancel</button>
+                <button id="confirm-ok-btn" class="btn danger" style="min-width:80px;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+__pycache__/
+
+# Runtime artifacts — never committed
+workspaces/*/results/
+workspaces/*/logs/
+
+# Legacy top-level dirs (if they exist from old layout)
+results/
+logs/

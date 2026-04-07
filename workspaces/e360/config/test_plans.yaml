@@ -1,0 +1,9 @@
+run_configs:
+- agent_ids:
+  - agent_76c3950c
+  config_id: rc_13608527
+  created_at: '2026-04-07T20:12:38.842708'
+  name: Ping test
+  suite_types:
+  - functional
+  tags: []
