@@ -65,7 +65,7 @@
 
 | # | Status | Task |
 |---|---|---|
-| E1 | 🔄 | electron-builder NSIS config — one-click installer |
-| E2 | 🔄 | userData workspace migration on first launch |
-| E3 | 🔄 | Auto-updater scaffold (electron-updater) |
-| E4 | 🔄 | Build + smoke test installer end-to-end |
+| E1 | ✅ | electron-builder NSIS config — one-click installer |
+| E2 | ✅ | userData workspace migration on first launch |
+| E3 | ✅ | Auto-updater scaffold (electron-updater) |
+| E4 | ✅ | Build + smoke test installer end-to-end |
