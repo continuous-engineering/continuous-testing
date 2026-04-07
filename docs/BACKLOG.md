@@ -15,13 +15,13 @@
 
 | # | Status | Task |
 |---|---|---|
-| A1 | 🔄 | Initialize package.json with all npm dependencies |
-| A2 | 🔄 | Create main.js — BrowserWindow, lifecycle, port IPC |
-| A3 | 🔄 | Create preload.js — contextBridge API surface |
-| A4 | 🔄 | Create src/store.js — YAML read/write abstraction |
-| A5 | 🔄 | Create src/workspace.js — WS path helper class |
-| A6 | 🔄 | Create src/server.js + src/helpers.js — Express factory |
-| A7 | 🔄 | Wire up electron-builder config in package.json |
+| A1 | ✅ | Initialize package.json with all npm dependencies |
+| A2 | ✅ | Create main.js — BrowserWindow, lifecycle, port IPC |
+| A3 | ✅ | Create preload.js — contextBridge API surface |
+| A4 | ✅ | Create src/store.js — YAML read/write abstraction |
+| A5 | ✅ | Create src/workspace.js — WS path helper class |
+| A6 | ✅ | Create src/server.js + src/helpers.js — Express factory |
+| A7 | ✅ | Wire up electron-builder config in package.json |
 
 ---
 
@@ -29,12 +29,12 @@
 
 | # | Status | Task |
 |---|---|---|
-| B1 | ⬜ | src/routes/projects.js — GET/POST/DELETE /api/projects |
-| B2 | ⬜ | src/routes/agents.js — full CRUD /api/agents |
-| B3 | ⬜ | src/routes/test-cases.js — all test-case endpoints |
-| B4 | ⬜ | src/routes/environments.js — CRUD /api/environments |
-| B5 | ⬜ | src/routes/tags.js — GET/POST /api/tags |
-| B6 | ⬜ | src/routes/dashboard.js — GET /api/dashboard |
+| B1 | 🔄 | src/routes/projects.js — GET/POST/DELETE /api/projects |
+| B2 | 🔄 | src/routes/agents.js — full CRUD /api/agents |
+| B3 | 🔄 | src/routes/test-cases.js — all test-case endpoints |
+| B4 | 🔄 | src/routes/environments.js — CRUD /api/environments |
+| B5 | 🔄 | src/routes/tags.js — GET/POST /api/tags |
+| B6 | 🔄 | src/routes/dashboard.js — GET /api/dashboard |
 
 ---
 
