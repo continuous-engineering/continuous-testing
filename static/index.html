@@ -64,10 +64,6 @@
                 <div class="nav-item" id="nav-settings" onclick="switchPage('settings')">
                     <span>&#9881;</span> Settings
                 </div>
-                <div class="nav-item" id="git-nav-item" onclick="switchPage('git')">
-                    <span>&#10003;</span> Git Commit
-                    <span id="git-dirty-dot" style="display:none;background:#e74c3c;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px;vertical-align:middle;" title="Uncommitted changes"></span>
-                </div>
             </div>
 
             <!-- AI Scorer status -->
@@ -329,56 +325,6 @@
                                     <tbody id="ee-vars-body"></tbody>
                                 </table>
                                 <button class="btn" onclick="addVarRow()" style="margin-top:10px;">+ Add Variable</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Git Page -->
-                <div id="git" class="page">
-                    <!-- Sync status bar -->
-                    <div id="git-sync-bar" style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:#eaf4fb;border-radius:8px;margin-bottom:16px;font-size:13px;">
-                        <span id="git-branch-label" style="font-weight:600;color:#2c3e50;">branch: —</span>
-                        <span id="git-ahead-behind" style="color:#666;"></span>
-                        <span style="flex:1;"></span>
-                        <span id="git-last-sync" style="color:#888;"></span>
-                        <div id="git-sync-progress" style="display:none;width:120px;height:4px;background:#ddd;border-radius:2px;overflow:hidden;">
-                            <div id="git-sync-bar-inner" style="height:100%;background:#3498db;width:0%;transition:width 0.3s;animation:syncSlide 1.2s linear infinite;"></div>
-                        </div>
-                        <button class="btn" onclick="doGitSync()" id="git-sync-btn" style="font-size:12px;padding:5px 12px;">&#8635; Sync Now</button>
-                    </div>
-                    <style>@keyframes syncSlide{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}</style>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Commit Changes</h3>
-                            <button class="btn" onclick="loadGitStatus()">Refresh</button>
-                        </div>
-                        <div class="card-content">
-                            <div style="margin-bottom:16px;">
-                                <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:6px;">CHANGED FILES</div>
-                                <pre id="git-status" style="background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:6px;font-size:13px;min-height:80px;overflow-x:auto;">Loading...</pre>
-                            </div>
-                            <div style="margin-bottom:16px;">
-                                <label style="font-size:13px;font-weight:600;color:#555;">COMMIT MESSAGE</label>
-                                <textarea id="git-message" placeholder="Describe what changed (e.g. Add security tests for auth endpoints)" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;min-height:80px;font-family:inherit;box-sizing:border-box;"></textarea>
-                            </div>
-                            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                                <button class="btn success" onclick="doSmartCommit()" style="font-weight:600;" title="Commit each changed scope separately, rebase, then push">Smart Commit + Push</button>
-                                <button class="btn" onclick="doGitCommit()" style="font-size:12px;" title="Single commit, no push">Commit only</button>
-                                <span id="git-commit-status" style="font-size:13px;color:#888;"></span>
-                            </div>
-                            <!-- Smart commit breakdown -->
-                            <div id="git-commits-panel" style="display:none;margin-top:14px;">
-                                <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:6px;">COMMIT BREAKDOWN</div>
-                                <div id="git-commits-list"></div>
-                            </div>
-                            <pre id="git-output" style="margin-top:14px;background:#1e1e1e;color:#d4d4d4;padding:14px;border-radius:6px;font-size:13px;display:none;overflow-x:auto;white-space:pre-wrap;"></pre>
-                            <!-- Conflict report -->
-                            <div id="git-conflict-panel" style="display:none;margin-top:14px;padding:14px;background:#fdf2f2;border:1px solid #f5c6cb;border-radius:6px;">
-                                <div style="font-weight:600;color:#c0392b;margin-bottom:8px;">Sync conflict detected — rebase aborted, your files are safe</div>
-                                <div style="font-size:13px;color:#555;margin-bottom:8px;">These files conflict with remote changes. To resolve: sync again after the remote is updated, or ask your team lead to merge manually.</div>
-                                <ul id="git-conflict-list" style="font-family:monospace;font-size:13px;color:#c0392b;margin:0;padding-left:18px;"></ul>
                             </div>
                         </div>
                     </div>
