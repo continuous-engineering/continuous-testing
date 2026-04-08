@@ -405,15 +405,99 @@ router.post('/remote', async (req, res) => {
 
 // ── POST /api/git/init ────────────────────────────────────
 // Initialize the current project directory as a new git repo.
+// Also seeds README.md and LICENSE so the repo is self-explanatory on GitHub.
 router.post('/init', async (req, res) => {
   try {
     const ws = new WS(getProject(req));
     if (isGitRepo(ws.root))
       return res.json({ success: false, output: 'Already a git repo.' });
 
+    fs.mkdirSync(ws.root, { recursive: true });
     const g = simpleGit(ws.root);
     await g.init();
-    res.json({ success: true, output: `Initialized git repo at ${ws.root}` });
+
+    // ── README ──────────────────────────────────────────────
+    const readme = `# ${ws.project} — AI Agent Test Suite
+
+This repository contains AI agent test cases managed with **continuous.testing**.
+
+## What is this?
+
+These YAML files define test scenarios for AI agents — prompts, expected behaviours,
+and safety checks. They are run and scored by the
+[continuous.testing](https://continuous-engineering.github.io/continuous-testing/)
+desktop app by [continuous.engineering](https://continuous.engineering).
+
+## Getting Started
+
+1. Download [continuous.testing](https://continuous-engineering.github.io/continuous-testing/)
+2. Open the app → Settings → point it at the folder containing this repo
+3. Run test cases against your AI agent endpoints
+
+## Repository Structure
+
+\`\`\`
+agents/                     # Agent configurations
+  <agent-id>/
+    agent.yaml              # Endpoint, model, auth
+    test-cases/             # Agent-specific test cases
+test-cases/                 # Workspace-wide test cases (all agents)
+config/
+  environments.yaml         # Target environments (dev, staging, prod)
+  test_plans.yaml           # Named test plans grouping test cases
+\`\`\`
+
+## Test Case Format
+
+\`\`\`yaml
+id: tc_001
+name: Basic greeting
+prompt: "Hello, who are you?"
+expected: "assistant"
+suite_type: functional
+tags: [smoke]
+\`\`\`
+
+## Learn More
+
+- [continuous.testing](https://continuous-engineering.github.io/continuous-testing/) — Download the app
+- [continuous.engineering](https://continuous.engineering) — Built by continuous.engineering
+- [GitHub](https://github.com/continuous-engineering/continuous-testing) — Source & releases
+`;
+
+    // ── LICENSE (MIT) ────────────────────────────────────────
+    const year = new Date().getFullYear();
+    const license = `MIT License
+
+Copyright (c) ${year} ${ws.project}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+`;
+
+    fs.writeFileSync(path.join(ws.root, 'README.md'), readme);
+    fs.writeFileSync(path.join(ws.root, 'LICENSE'), license);
+
+    // Initial commit
+    await g.add(['README.md', 'LICENSE']);
+    await g.commit(`chore: initialize ${ws.project} test suite`);
+
+    res.json({ success: true, output: `Initialized git repo with README and LICENSE` });
   } catch (e) {
     res.json({ success: false, output: e.message });
   }
