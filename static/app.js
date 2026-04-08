@@ -1718,6 +1718,13 @@ async function openSettings() {
         pathEl.value = settings.workspacesDir || current;
         infoEl.textContent = `Active: ${current}`;
         resolved.textContent = `Active workspace path: ${current}`;
+
+        // Update channel — only meaningful in packaged app
+        const channel = settings.updateChannel || 'latest';
+        const radio = document.querySelector(`input[name="update-channel"][value="${channel}"]`);
+        if (radio) radio.checked = true;
+        const channelCard = document.getElementById('update-channel-card');
+        if (channelCard) channelCard.style.display = '';
     } else {
         document.getElementById('settings-browse-btn').disabled = true;
         infoEl.textContent = 'Browse requires the desktop app.';
@@ -1823,6 +1830,16 @@ async function saveRemote(projectName, safeId) {
 
 function closeSettings() {
     document.getElementById('settings-overlay').style.display = 'none';
+}
+
+async function saveUpdateChannel(value) {
+    if (!window.electronAPI) return;
+    await window.electronAPI.saveSettings({ updateChannel: value });
+    const status = document.getElementById('channel-save-status');
+    if (status) {
+        status.style.display = 'block';
+        setTimeout(() => { status.style.display = 'none'; }, 3000);
+    }
 }
 
 async function browseWorkspaceDir() {

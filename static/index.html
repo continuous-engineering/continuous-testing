@@ -747,6 +747,29 @@
                 </div>
             </div>
 
+            <!-- Update Channel -->
+            <div class="settings-card" id="update-channel-card" style="display:none;">
+                <div class="settings-card-title">Update Channel</div>
+                <p class="settings-hint">Controls which releases the app checks for updates. Changes take effect on next launch.</p>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;">
+                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;border:1.5px solid #ddd;border-radius:7px;background:#fff;">
+                        <input type="radio" name="update-channel" value="latest" id="channel-latest" onchange="saveUpdateChannel(this.value)" style="margin-top:3px;accent-color:#2c3e50;">
+                        <div>
+                            <div style="font-weight:600;font-size:14px;color:#2c3e50;">Stable <span style="font-weight:400;color:#27ae60;font-size:12px;">Recommended</span></div>
+                            <div style="font-size:12px;color:#888;margin-top:2px;">Tagged releases from <code>main</code> — production ready.</div>
+                        </div>
+                    </label>
+                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;border:1.5px solid #ddd;border-radius:7px;background:#fff;">
+                        <input type="radio" name="update-channel" value="beta" id="channel-beta" onchange="saveUpdateChannel(this.value)" style="margin-top:3px;accent-color:#2c3e50;">
+                        <div>
+                            <div style="font-weight:600;font-size:14px;color:#2c3e50;">Beta</div>
+                            <div style="font-size:12px;color:#888;margin-top:2px;">Builds from the <code>dev</code> branch — new features sooner, may have rough edges.</div>
+                        </div>
+                    </label>
+                </div>
+                <div id="channel-save-status" style="font-size:12px;color:#27ae60;margin-top:10px;display:none;">Saved — takes effect on next launch</div>
+            </div>
+
             <!-- About -->
             <div class="settings-card">
                 <div class="settings-card-title">About</div>
