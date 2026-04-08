@@ -1,0 +1,57 @@
+name: Dev Build (Rolling)
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint:all
+
+      - name: Stamp dev version
+        shell: bash
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          DEV_VERSION="${BASE}-dev.${{ github.run_number }}"
+          echo "DEV_VERSION=$DEV_VERSION" >> $GITHUB_ENV
+          npm version "$DEV_VERSION" --no-git-tag-version
+
+      - name: Build
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish dev-latest pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-latest
+          name: "Dev Build ${{ env.DEV_VERSION }}"
+          body: |
+            Rolling dev build from `dev` branch.
+            Commit: ${{ github.sha }}
+            Built: ${{ github.run_number }}
+
+            > Not stable — for testing only.
+          files: dist/*.exe
+          prerelease: true
+          draft: false
