@@ -2,6 +2,14 @@
   "name": "agent-test-manager",
   "version": "0.1.0",
   "description": "Desktop app for testing AI agents — no Python, no setup",
+  "author": {
+    "name": "Continuia",
+    "email": "support@continuia.com",
+    "url": "https://continuia.com"
+  },
+  "homepage": "https://continuia.com",
+  "license": "UNLICENSED",
+  "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
