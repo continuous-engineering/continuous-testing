@@ -63,7 +63,7 @@ function createWindow(port) {
       nodeIntegration: false,
       sandbox: false,
     },
-    title: 'Agent Test Manager',
+    title: 'Continuous.Testing',
     show: false,
     backgroundColor: '#f5f6fa',
   });

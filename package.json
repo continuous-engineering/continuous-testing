@@ -1,7 +1,7 @@
 {
-  "name": "agent-test-manager",
+  "name": "continuous-testing",
   "version": "0.1.0",
-  "description": "Desktop app for testing AI agents",
+  "description": "Continuous.Testing — AI agent test manager by continuous.engineering",
   "author": {
     "name": "Shree Mandadi",
     "email": "shree@continuous.engineering",
@@ -34,9 +34,9 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.continuous.engineering.agent-test-manager",
-    "productName": "Agent Test Manager",
-    "copyright": "Copyright 2026 Continuous.engineering",
+    "appId": "com.continuous.engineering.testing",
+    "productName": "Continuous.Testing",
+    "copyright": "Copyright 2026 Shree Mandadi — continuous.engineering",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -81,7 +81,8 @@
           "target": "portable",
           "arch": ["x64"]
         }
-      ]
+      ],
+      "icon": "build/icon.ico"
     },
     "npmRebuild": false,
     "asarUnpack": [
