@@ -1,14 +1,14 @@
 {
   "name": "agent-test-manager",
   "version": "0.1.0",
-  "description": "Desktop app for testing AI agents — no Python, no setup",
+  "description": "Desktop app for testing AI agents",
   "author": {
-    "name": "Continuia",
-    "email": "support@continuia.com",
-    "url": "https://continuia.com"
+    "name": "Shree Mandadi",
+    "email": "shree@continuous.engineering",
+    "url": "https://continuous.engineering"
   },
-  "homepage": "https://continuia.com",
-  "license": "UNLICENSED",
+  "homepage": "https://continuous.engineering",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -34,16 +34,16 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.continuia.agent-test-manager",
+    "appId": "com.continuous.engineering.agent-test-manager",
     "productName": "Agent Test Manager",
-    "copyright": "Copyright 2026 Continuia",
+    "copyright": "Copyright 2026 Continuous.engineering",
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
     "publish": {
       "provider": "generic",
-      "url": "https://releases.continuia.com/agent-test-manager/"
+      "url": "https://releases.continuous.engineering/agent-test-manager/"
     },
     "files": [
       "main.js",
