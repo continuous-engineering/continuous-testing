@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Continuous.Testing — Download</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f4f6f9;
+      color: #2c3e50;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a252f;
+      color: #fff;
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: -0.3px;
+    }
+    .logo span { color: #5dade2; }
+    header nav a {
+      color: #aab;
+      text-decoration: none;
+      font-size: 14px;
+      margin-left: 28px;
+      transition: color .2s;
+    }
+    header nav a:hover { color: #fff; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #1a252f 0%, #2c3e50 60%, #1f618d 100%);
+      color: #fff;
+      text-align: center;
+      padding: 72px 20px 64px;
+    }
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+    .hero h1 span { color: #5dade2; }
+    .hero p {
+      font-size: 18px;
+      color: #aac4d8;
+      max-width: 520px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    .btn-dl {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform .15s, box-shadow .15s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-dl:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+    .btn-dl.primary { background: #2ecc71; color: #fff; }
+    .btn-dl.primary:hover { background: #27ae60; }
+    .btn-dl.secondary { background: rgba(255,255,255,0.12); color: #fff; border: 1.5px solid rgba(255,255,255,0.25); }
+    .btn-dl.secondary:hover { background: rgba(255,255,255,0.2); }
+    .btn-dl svg { flex-shrink: 0; }
+
+    .hero-meta {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #7899b0;
+    }
+    .hero-meta strong { color: #aac4d8; }
+
+    /* ── Main content ── */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #7f8c8d;
+      margin-bottom: 16px;
+    }
+
+    /* ── Release table ── */
+    .releases-wrap {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      overflow: hidden;
+      border: 1px solid #e4e8ee;
+    }
+
+    .releases-filter {
+      padding: 14px 20px;
+      border-bottom: 1px solid #f0f2f5;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .releases-filter input {
+      padding: 7px 12px;
+      border: 1.5px solid #dde1e8;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      width: 220px;
+      outline: none;
+    }
+    .releases-filter input:focus { border-color: #5dade2; }
+
+    .channel-toggle {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .ch-btn {
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1.5px solid #dde1e8;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #7f8c8d;
+      transition: all .15s;
+    }
+    .ch-btn.active { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f8f9fb; }
+    th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #7f8c8d;
+      border-bottom: 1px solid #edf0f4;
+    }
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #f2f4f7;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background .1s; }
+    tbody tr:hover { background: #fafbfd; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .badge-stable { background: #e8f8f0; color: #1e8449; }
+    .badge-beta   { background: #eaf3fb; color: #1a6fa0; }
+    .badge-latest { background: #2ecc71; color: #fff; margin-left: 6px; }
+
+    .version-name {
+      font-weight: 700;
+      font-size: 15px;
+      color: #2c3e50;
+    }
+    .release-date { color: #95a5a6; font-size: 13px; }
+
+    .dl-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: #2c3e50;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+    .dl-link:hover { background: #1a252f; }
+    .dl-link.beta-link { background: #2980b9; }
+    .dl-link.beta-link:hover { background: #1f6fa0; }
+
+    /* ── Loading / empty states ── */
+    .state-row td {
+      text-align: center;
+      padding: 40px;
+      color: #aaa;
+      font-size: 14px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid #ddd;
+      border-top-color: #5dade2;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 28px 20px;
+      font-size: 13px;
+      color: #aaa;
+      border-top: 1px solid #e8eaee;
+    }
+    footer a { color: #5dade2; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 28px; }
+      .hero p  { font-size: 15px; }
+      th:nth-child(3), td:nth-child(3) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="#5dade2" stroke-width="2"/>
+      <path d="M8 12l3 3 5-5" stroke="#5dade2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Continuous<span>.Testing</span>
+  </div>
+  <nav>
+    <a href="https://github.com/continuous-engineering/continuous-testing" target="_blank">GitHub</a>
+    <a href="https://continuous.engineering" target="_blank">continuous.engineering</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Test AI agents.<br><span>Without the setup.</span></h1>
+  <p>Desktop app for testing AI agents. Download one installer and run — no Python, no Node.js, no CLI required.</p>
+
+  <div class="hero-actions">
+    <a id="dl-stable" href="#" class="btn-dl primary" style="display:none;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for Windows
+    </a>
+    <a id="dl-beta" href="#" class="btn-dl secondary" style="display:none;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+      </svg>
+      Try Beta Build
+    </a>
+  </div>
+
+  <div class="hero-meta" id="hero-meta">Loading latest release…</div>
+</section>
+
+<main>
+  <div class="section-title">All Releases</div>
+  <div class="releases-wrap">
+    <div class="releases-filter">
+      <input type="text" id="search" placeholder="Search versions…" oninput="renderTable()">
+      <div class="channel-toggle">
+        <button class="ch-btn active" id="btn-all"    onclick="setChannel('all')">All</button>
+        <button class="ch-btn"        id="btn-stable" onclick="setChannel('stable')">Stable</button>
+        <button class="ch-btn"        id="btn-beta"   onclick="setChannel('beta')">Beta</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Channel</th>
+          <th>Released</th>
+          <th>Download</th>
+        </tr>
+      </thead>
+      <tbody id="releases-tbody">
+        <tr class="state-row"><td colspan="4"><span class="spinner"></span> Loading releases…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<footer>
+  Built by <a href="https://continuous.engineering">continuous.engineering</a> &nbsp;·&nbsp;
+  <a href="https://github.com/continuous-engineering/continuous-testing">Source on GitHub</a>
+</footer>
+
+<script>
+  const REPO = 'continuous-engineering/continuous-testing';
+  const API  = `https://api.github.com/repos/${REPO}/releases`;
+
+  let allReleases = [];
+  let channel = 'all';
+
+  function setChannel(c) {
+    channel = c;
+    ['all','stable','beta'].forEach(k => {
+      document.getElementById(`btn-${k}`).classList.toggle('active', k === c);
+    });
+    renderTable();
+  }
+
+  function exeAsset(release) {
+    return release.assets?.find(a => a.name.endsWith('.exe')) || null;
+  }
+
+  function formatDate(iso) {
+    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function isBeta(release) {
+    return release.prerelease || release.tag_name === 'dev-latest';
+  }
+
+  function renderHero(releases) {
+    const stable = releases.find(r => !isBeta(r));
+    const beta   = releases.find(r => isBeta(r));
+    const metaEl = document.getElementById('hero-meta');
+
+    if (stable) {
+      const asset = exeAsset(stable);
+      const dlEl  = document.getElementById('dl-stable');
+      if (asset) {
+        dlEl.href = asset.browser_download_url;
+        dlEl.style.display = 'inline-flex';
+        metaEl.innerHTML = `Latest stable: <strong>${stable.tag_name}</strong> &nbsp;·&nbsp; ${formatDate(stable.published_at)} &nbsp;·&nbsp; Windows x64`;
+      }
+    } else {
+      metaEl.textContent = 'No stable release yet.';
+    }
+
+    if (beta) {
+      const asset = exeAsset(beta);
+      const dlEl  = document.getElementById('dl-beta');
+      if (asset) {
+        dlEl.href = asset.browser_download_url;
+        dlEl.style.display = 'inline-flex';
+      }
+    }
+  }
+
+  function renderTable() {
+    const q    = document.getElementById('search').value.toLowerCase().trim();
+    const tbody = document.getElementById('releases-tbody');
+
+    let list = allReleases.filter(r => {
+      if (channel === 'stable' && isBeta(r)) return false;
+      if (channel === 'beta'   && !isBeta(r)) return false;
+      if (q && !r.tag_name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    if (!list.length) {
+      tbody.innerHTML = '<tr class="state-row"><td colspan="4">No releases found.</td></tr>';
+      return;
+    }
+
+    const stableLatest = allReleases.find(r => !isBeta(r));
+
+    tbody.innerHTML = list.map(release => {
+      const asset    = exeAsset(release);
+      const beta     = isBeta(release);
+      const isLatest = release.id === stableLatest?.id;
+
+      const badge = beta
+        ? '<span class="badge badge-beta">Beta</span>'
+        : `<span class="badge badge-stable">Stable</span>${isLatest ? '<span class="badge badge-latest">Latest</span>' : ''}`;
+
+      const dlBtn = asset
+        ? `<a href="${asset.browser_download_url}" class="dl-link ${beta ? 'beta-link' : ''}" download>
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+             </svg>
+             .exe
+           </a>`
+        : '<span style="color:#ccc;font-size:13px;">—</span>';
+
+      return `<tr>
+        <td>
+          <div class="version-name">${release.tag_name}</div>
+        </td>
+        <td>${badge}</td>
+        <td><span class="release-date">${formatDate(release.published_at)}</span></td>
+        <td>${dlBtn}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function load() {
+    try {
+      const res  = await fetch(`${API}?per_page=30`);
+      if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+      allReleases = await res.json();
+      renderHero(allReleases);
+      renderTable();
+    } catch (e) {
+      document.getElementById('releases-tbody').innerHTML =
+        `<tr class="state-row"><td colspan="4">Failed to load releases: ${e.message}</td></tr>`;
+      document.getElementById('hero-meta').textContent = 'Could not load release info.';
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>
