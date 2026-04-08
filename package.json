@@ -39,7 +39,7 @@
   },
   "build": {
     "appId": "com.continuous.engineering.testing",
-    "productName": "Continuous.Testing",
+    "productName": "Continuous-Testing",
     "copyright": "Copyright 2026 Shree Mandadi — continuous.engineering",
     "directories": {
       "output": "dist",
