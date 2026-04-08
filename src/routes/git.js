@@ -32,6 +32,22 @@ function isGitRepo(dir) {
   try { return fs.existsSync(path.join(dir, '.git')); } catch { return false; }
 }
 
+/** Detect the default branch of a remote after fetch. */
+async function detectDefaultBranch(g) {
+  try {
+    const out = await g.raw(['ls-remote', '--symref', 'origin', 'HEAD']);
+    const m = out.match(/ref: refs\/heads\/(\S+)\s+HEAD/);
+    if (m) return m[1];
+  } catch {}
+  try {
+    const lines = (await g.raw(['branch', '-r']))
+      .split('\n').map(l => l.trim()).filter(Boolean);
+    const first = lines.find(l => !l.includes('->'))?.replace('origin/', '').trim();
+    if (first) return first;
+  } catch {}
+  return 'main';
+}
+
 // ── GET /api/git/status ───────────────────────────────────
 router.get('/status', async (req, res) => {
   try {
@@ -125,7 +141,8 @@ router.post('/sync', async (req, res) => {
       await g.init();
       await g.addRemote('origin', GLOBAL_REMOTE);
       await g.fetch(['origin']);
-      await g.raw(['checkout', '-b', 'main', '--track', 'origin/main']);
+      const defaultBranch = await detectDefaultBranch(g);
+      await g.raw(['checkout', '-b', defaultBranch, '--track', `origin/${defaultBranch}`]);
       return res.json({ success: true, output: '_global initialized and synced from continuous.engineering', conflicts: [], dirty: false });
     }
 
@@ -149,8 +166,9 @@ router.post('/sync', async (req, res) => {
     try {
       branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
     } catch {
-      // HEAD is unborn — finish the checkout now
-      await g.raw(['checkout', '-b', 'main', '--track', 'origin/main']);
+      // HEAD is unborn — detect default branch and finish checkout
+      const defaultBranch = await detectDefaultBranch(g);
+      await g.raw(['checkout', '-b', defaultBranch, '--track', `origin/${defaultBranch}`]);
       return res.json({ success: true, output: 'Sync complete', conflicts: [], dirty: false });
     }
     const tracking = `origin/${branch}`;
