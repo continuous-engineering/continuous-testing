@@ -1605,7 +1605,8 @@ async function loadProjectsDropdown() {
             sel.value = window._activeProject;
             localStorage.setItem('activeProject', window._activeProject);
         }
-    } catch(e) { console.error(e); }
+        return projects;
+    } catch(e) { console.error(e); return []; }
 }
 
 function updateNavForProject(project) {
@@ -1668,8 +1669,17 @@ async function createProject() {
     }
 }
 
-// Init
-loadProjectsDropdown().then(() => {
+// Init — show Settings if no workspace configured yet
+async function init() {
+    const projects = await loadProjectsDropdown();
+
+    // First launch: no projects found → open Settings so user can configure data folder or clone a repo
+    if (!projects || projects.length === 0) {
+        openSettings();
+        toast('Welcome! Configure your data folder or clone a project repo to get started.', 'info');
+        return;
+    }
+
     updateNavForProject(window._activeProject);
     if (window._activeProject === '_global') {
         loadTestCasesPage();
@@ -1680,7 +1690,9 @@ loadProjectsDropdown().then(() => {
         API.get('/test-plans').then(c => { window._testPlansCache = c; }).catch(() => {});
     }
     if (typeof loadGitInfo === 'function') loadGitInfo();
-});
+}
+
+init();
 
 // Auto-sync every 5 minutes
 setInterval(() => {
@@ -1732,12 +1744,17 @@ async function browseWorkspaceDir() {
     }
 }
 
-async function browseCloneDir() {
-    if (!window.electronAPI) return;
-    const folder = await window.electronAPI.openFolderDialog();
-    if (folder) {
-        document.getElementById('clone-dest').value = folder;
+function updateClonePreview() {
+    const url = document.getElementById('clone-url').value.trim();
+    const nameEl = document.getElementById('clone-project-name');
+    const previewEl = document.getElementById('clone-dest-preview');
+    if (url && !nameEl.value) {
+        const derived = url.split('/').pop().replace(/\.git$/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+        nameEl.value = derived;
     }
+    const name = nameEl.value.trim();
+    if (name) previewEl.textContent = `Will clone into: <data-folder>/${name}/`;
+    else previewEl.textContent = '';
 }
 
 async function saveSettings() {
@@ -1771,33 +1788,32 @@ async function clearWorkspaceDir() {
 }
 
 async function cloneRepo() {
-    const url  = document.getElementById('clone-url').value.trim();
-    const dest = document.getElementById('clone-dest').value.trim();
-    const outputEl = document.getElementById('clone-output');
-    const btn = document.getElementById('clone-btn');
+    const url         = document.getElementById('clone-url').value.trim();
+    const projectName = document.getElementById('clone-project-name').value.trim();
+    const outputEl    = document.getElementById('clone-output');
+    const btn         = document.getElementById('clone-btn');
 
-    if (!url)  { toast('Enter a repository URL', 'warn'); return; }
-    if (!dest) { toast('Choose a destination folder', 'warn'); return; }
+    if (!url) { toast('Enter a repository URL', 'warn'); return; }
 
     btn.disabled = true;
     btn.textContent = 'Cloning...';
     outputEl.style.display = 'block';
-    outputEl.textContent = `Cloning ${url}\ninto ${dest} ...\n`;
+    outputEl.textContent = `Cloning ${url} ...\n`;
 
     try {
         const res = await fetch('/api/git/clone', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, dest })
+            body: JSON.stringify({ url, project_name: projectName || undefined })
         });
         const data = await res.json();
         outputEl.textContent += data.output || '';
 
-        if (data.success && data.workspacesDir) {
-            outputEl.textContent += `\n✓ Workspace set to: ${data.workspacesDir}`;
-            document.getElementById('settings-workspace-path').value = data.workspacesDir;
-            await saveSettings();
-            toast('Cloned and workspace configured!', 'success');
+        if (data.success) {
+            outputEl.textContent += `\n✓ Project "${data.project}" added`;
+            toast(`Project "${data.project}" cloned and ready`, 'success');
+            await loadProjectsDropdown();
+            switchProject(data.project);
         } else {
             toast(data.output || 'Clone failed', 'error');
         }
@@ -1806,6 +1822,6 @@ async function cloneRepo() {
         toast('Clone failed', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Clone Repository';
+        btn.textContent = 'Clone & Add Project';
     }
 }

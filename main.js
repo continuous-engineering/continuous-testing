@@ -6,7 +6,33 @@ const portfinder = require('portfinder');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 let mainWindow = null;
+let splashWindow = null;
 let expressServer = null;
+
+// ── Splash screen ──────────────────────────────────────────
+// Shows instantly on click — orbit logo spins while app loads.
+
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 320,
+    height: 320,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+  splashWindow.loadFile(path.join(__dirname, 'static', 'splash.html'));
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+}
 
 // ── First-launch workspace migration ──────────────────────
 // Copies ./workspaces (bundled with installer) → userData/workspaces
@@ -75,11 +101,6 @@ function createWindow(port) {
 
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
-  });
-
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -125,14 +146,23 @@ function warmUpScorer() {
 // ── App lifecycle ──────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  // Show splash immediately — user sees something < 200ms after click
+  createSplash();
   migrateWorkspacesIfNeeded();
+
   try {
     const port = await startExpress();
     createWindow(port);
-    // Warm up scorer 3s after window shows — keeps startup fast
-    mainWindow.once('ready-to-show', () => setTimeout(warmUpScorer, 3000));
+
+    // Close splash once main window is ready to show
+    mainWindow.once('ready-to-show', () => {
+      closeSplash();
+      mainWindow.show();
+      if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
   } catch (err) {
     console.error('Failed to start server:', err);
+    closeSplash();
     app.quit();
   }
 

@@ -719,24 +719,20 @@
 
             <!-- Clone Repo -->
             <div class="settings-card">
-                <div class="settings-card-title">Clone a Workspace Repo</div>
-                <p class="settings-hint">Clone a git repository into a local folder. The app will set your workspace to <code>cloned-folder/workspaces/</code> automatically.</p>
+                <div class="settings-card-title">Add a Project Repo</div>
+                <p class="settings-hint">Each project is its own git repo, cloned directly into your data folder. The repo becomes a new project in the sidebar. No extra folder structure needed — just paste the URL.</p>
                 <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;">
                     <div>
                         <label class="settings-label">Repository URL</label>
-                        <input type="text" id="clone-url" placeholder="https://github.com/org/repo.git" style="width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
-                    </div>
-                    <div style="display:flex;gap:10px;align-items:flex-end;">
-                        <div style="flex:1;">
-                            <label class="settings-label">Clone Into Folder</label>
-                            <div style="display:flex;gap:8px;">
-                                <input type="text" id="clone-dest" placeholder="Choose parent folder..." style="flex:1;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;" readonly>
-                                <button class="btn" onclick="browseCloneDir()">Browse&hellip;</button>
-                            </div>
-                        </div>
+                        <input type="text" id="clone-url" placeholder="https://github.com/org/e360-tests.git" style="width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;" oninput="updateClonePreview()">
                     </div>
                     <div>
-                        <button class="btn success" id="clone-btn" onclick="cloneRepo()" style="font-weight:600;">Clone Repository</button>
+                        <label class="settings-label">Project Name <span style="font-weight:400;color:#aaa;">(auto-derived from URL, editable)</span></label>
+                        <input type="text" id="clone-project-name" placeholder="e.g. e360" style="width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
+                        <div id="clone-dest-preview" style="font-size:12px;color:#888;margin-top:5px;"></div>
+                    </div>
+                    <div>
+                        <button class="btn success" id="clone-btn" onclick="cloneRepo()" style="font-weight:600;">Clone &amp; Add Project</button>
                     </div>
                     <div id="clone-output" style="display:none;background:#1e1e2e;color:#a6e3a1;font-family:monospace;font-size:13px;padding:14px;border-radius:6px;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
                 </div>

@@ -49,13 +49,18 @@ async function loadModel() {
   try {
     const { pipeline: createPipeline, env } = await import('@xenova/transformers');
 
-    // Cache model in userData/models
+    // Cache model in <data-folder>/.models/ — alongside project repos
     try {
-      const { app } = require('electron');
       const path = require('path');
-      env.cacheDir = path.join(app.getPath('userData'), 'models');
+      const { getWorkspacesDirectory } = require('./workspace');
+      env.cacheDir = path.join(getWorkspacesDirectory(), '..', '.models');
     } catch {
-      // Not in Electron (e.g. tests) — use default cache
+      // Fallback: userData/models
+      try {
+        const { app } = require('electron');
+        const path = require('path');
+        env.cacheDir = path.join(app.getPath('userData'), '.models');
+      } catch { /* use default */ }
     }
 
     // Progress callback

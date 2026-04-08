@@ -1,37 +1,49 @@
+/**
+ * Git routes — per-project model.
+ *
+ * Each project (workspaces/<project>/) is its own independent git repository.
+ * Git operations scope to that repo root — no shared parent repo needed.
+ *
+ * workspaces/
+ *   e360/        ← git repo (origin: github.com/org/e360-tests)
+ *   acme/        ← git repo (origin: github.com/org/acme-tests)
+ *   _global/     ← local only (optionally its own repo)
+ */
+
 const router = require('express').Router();
 const path = require('path');
+const fs = require('fs');
 const simpleGit = require('simple-git');
 const { WS, getWorkspacesDirectory } = require('../workspace');
 const { getProject } = require('../helpers');
 
-// Base dir for git operations = parent of workspaces/ (the project root)
-function getBaseDir() {
-  return path.dirname(getWorkspacesDirectory());
+/** Returns a simple-git instance rooted at the project directory. */
+function projectGit(ws) {
+  return simpleGit(ws.root);
 }
 
-function git() {
-  return simpleGit(getBaseDir());
+/** Check if a directory is a git repo. */
+function isGitRepo(dir) {
+  try { return fs.existsSync(path.join(dir, '.git')); } catch { return false; }
 }
 
 // ── GET /api/git/status ───────────────────────────────────
 router.get('/status', async (req, res) => {
   try {
-    const project = getProject(req);
-    const ws = new WS(project);
-    const g = git();
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ output: 'Not a git repo. Use Settings to clone or init.', dirty: false, no_repo: true });
 
-    // Workspace-scoped diff
-    const relRoot = path.relative(getBaseDir(), ws.root).replace(/\\/g, '/');
-    const scopedStatus = await g.status([relRoot]);
+    const g = projectGit(ws);
+    const status = await g.status();
     const lines = [
-      ...scopedStatus.modified.map(f => `M  ${f}`),
-      ...scopedStatus.not_added.map(f => `?? ${f}`),
-      ...scopedStatus.deleted.map(f => `D  ${f}`),
-    ];
-    const output = lines.join('\n') || 'Nothing to commit';
+      ...status.modified.map(f => `M  ${f}`),
+      ...status.not_added.map(f => `?? ${f}`),
+      ...status.deleted.map(f => `D  ${f}`),
+      ...status.created.map(f => `A  ${f}`),
+    ].filter(f => !f.includes('results/') && !f.includes('logs/'));
 
-    const overall = await g.status();
-    res.json({ output, dirty: !overall.isClean() });
+    res.json({ output: lines.join('\n') || 'Nothing to commit', dirty: !status.isClean() });
   } catch (e) {
     res.json({ output: e.message, dirty: false });
   }
@@ -40,14 +52,18 @@ router.get('/status', async (req, res) => {
 // ── GET /api/git/info ─────────────────────────────────────
 router.get('/info', async (req, res) => {
   try {
-    const g = git();
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ branch: '', ahead: 0, behind: 0, dirty: false, last_sync: null, no_repo: true });
+
+    const g = projectGit(ws);
     const branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'unknown';
     let ahead = 0, behind = 0;
     try {
       const raw = await g.raw(['rev-list', '--left-right', '--count', `HEAD...origin/${branch}`]);
       const parts = raw.trim().split(/\s+/);
       if (parts.length === 2) { ahead = parseInt(parts[0]); behind = parseInt(parts[1]); }
-    } catch { /* no remote */ }
+    } catch { /* no remote configured */ }
 
     let lastSync = null;
     try { lastSync = (await g.raw(['log', '-1', '--format=%cd', '--date=iso', 'FETCH_HEAD'])).trim() || null; } catch {}
@@ -66,17 +82,14 @@ router.post('/commit', async (req, res) => {
     return res.status(400).json({ success: false, output: 'No commit message' });
 
   try {
-    const project = getProject(req);
-    const ws = new WS(project);
-    const g = git();
-    const relRoot = path.relative(getBaseDir(), ws.root).replace(/\\/g, '/');
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ success: false, output: 'Not a git repo.' });
 
-    await g.add(relRoot);
-    // Unstage results/ and logs/ if caught
-    const relResults = path.relative(getBaseDir(), path.join(ws.root, 'results')).replace(/\\/g, '/');
-    const relLogs = path.relative(getBaseDir(), ws.logsDir).replace(/\\/g, '/');
-    try { await g.raw(['reset', 'HEAD', '--', relResults]); } catch {}
-    try { await g.raw(['reset', 'HEAD', '--', relLogs]); } catch {}
+    const g = projectGit(ws);
+    await g.add('.');
+    try { await g.raw(['reset', 'HEAD', '--', 'results']); } catch {}
+    try { await g.raw(['reset', 'HEAD', '--', 'logs']); } catch {}
 
     const result = await g.commit(message.trim());
     const status = await g.status();
@@ -89,7 +102,11 @@ router.post('/commit', async (req, res) => {
 // ── POST /api/git/sync ────────────────────────────────────
 router.post('/sync', async (req, res) => {
   try {
-    const g = git();
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ success: false, output: 'Not a git repo.', conflicts: [], dirty: false });
+
+    const g = projectGit(ws);
     await g.fetch(['--all']);
     const branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
     const tracking = `origin/${branch}`;
@@ -119,7 +136,11 @@ router.post('/sync', async (req, res) => {
 // ── POST /api/git/push ────────────────────────────────────
 router.post('/push', async (req, res) => {
   try {
-    const g = git();
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ success: false, output: 'Not a git repo.', branch: '' });
+
+    const g = projectGit(ws);
     const branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
     await g.push('origin', branch);
     res.json({ success: true, output: 'Pushed', branch });
@@ -132,43 +153,54 @@ router.post('/push', async (req, res) => {
 router.post('/smart-commit', async (req, res) => {
   const message = (req.body.message || 'update').trim();
   try {
-    const g = git();
-    const status = await g.status(['--', 'workspaces/']);
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ success: false, output: 'Not a git repo.', commits: [] });
+
+    const project = ws.project;
+    const g = projectGit(ws);
+    const status = await g.status();
+
     const allFiles = [
-      ...status.modified,
-      ...status.not_added,
-      ...status.deleted,
-      ...status.created,
-    ].filter(f => !f.includes('/results/') && !f.includes('/logs/'));
+      ...status.modified, ...status.not_added,
+      ...status.deleted,  ...status.created,
+    ].filter(f => !f.includes('results/') && !f.includes('logs/'));
 
     if (!allFiles.length)
       return res.json({ success: true, output: 'Nothing to commit', commits: [] });
 
-    // Group by scope
+    // Group by scope within the project repo
+    // Paths are relative to ws.root:
+    //   agents/<id>/agent.yaml          → agents
+    //   agents/<id>/test-cases/*.yaml   → agent test (per agent)
+    //   test-cases/*.yaml               → workspace tests
+    //   config/*.yaml                   → config
     const groups = new Map();
-    for (const filePath of allFiles) {
-      const parts = filePath.replace(/\\/g, '/').split('/');
-      if (parts.length < 3) continue;
-      const proj = parts[1];
-      const rest = parts[2] || '';
+    for (const f of allFiles) {
+      const norm = f.replace(/\\/g, '/');
       let key;
-      if (proj === '_global')         key = `_global::`;
-      else if (rest === 'agents')     key = `agents:${proj}:`;
-      else if (rest === 'test-cases') key = `workspace:${proj}:`;
-      else if (rest === 'config')     key = `config:${proj}:`;
-      else                            key = `config:${proj}:`;
+      if (norm.startsWith('agents/') && norm.includes('/test-cases/')) {
+        const agentId = norm.split('/')[1];
+        key = `agent_test:${agentId}`;
+      } else if (norm.startsWith('agents/')) {
+        key = 'agents:';
+      } else if (norm.startsWith('test-cases/')) {
+        key = 'workspace_tests:';
+      } else {
+        key = 'config:';
+      }
       if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(filePath);
+      groups.get(key).push(f);
     }
 
     const commits = [];
     for (const [key, files] of groups) {
-      const [scope, proj] = key.split(':');
+      const [scope, extra] = key.split(':');
       let subject;
-      if (scope === '_global')   subject = `test(global): ${message}`;
-      else if (scope === 'agents')   subject = `feat(${proj}): ${message} [agents]`;
-      else if (scope === 'workspace') subject = `test(${proj}): ${message} [workspace]`;
-      else                           subject = `chore(${proj}): ${message}`;
+      if (scope === 'agents')          subject = `feat(${project}): ${message} [agents]`;
+      else if (scope === 'agent_test') subject = `test(${project}/${extra}): ${message}`;
+      else if (scope === 'workspace_tests') subject = `test(${project}): ${message} [workspace]`;
+      else                             subject = `chore(${project}): ${message}`;
 
       for (const f of files) await g.add(f);
       try {
@@ -181,8 +213,7 @@ router.post('/smart-commit', async (req, res) => {
     }
 
     const allOk = commits.every(c => c.success);
-    let pushed = false;
-    let pushOutput = '';
+    let pushed = false, pushOutput = '';
     if (allOk && commits.length) {
       try {
         const branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
@@ -201,21 +232,50 @@ router.post('/smart-commit', async (req, res) => {
 });
 
 // ── POST /api/git/clone ───────────────────────────────────
+// Clone a repo directly into workspaces/<project-name>/
+// The cloned directory IS the project — no workspaces/ subfolder needed.
 router.post('/clone', async (req, res) => {
-  const { url, dest } = req.body;
-  if (!url || !dest)
-    return res.status(400).json({ success: false, output: 'url and dest are required' });
+  const { url, project_name } = req.body;
+  if (!url) return res.status(400).json({ success: false, output: 'url is required' });
+
+  // Derive project name from URL if not provided
+  const name = (project_name || url.split('/').pop().replace(/\.git$/, '') || 'project')
+    .toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+
+  const workspacesDir = getWorkspacesDirectory();
+  const dest = path.join(workspacesDir, name);
+
+  if (fs.existsSync(dest))
+    return res.status(409).json({ success: false, output: `Project "${name}" already exists at ${dest}` });
 
   try {
-    const fs = require('fs');
-    fs.mkdirSync(dest, { recursive: true });
+    fs.mkdirSync(workspacesDir, { recursive: true });
     const g = simpleGit();
     await g.clone(url, dest);
-    // Point workspaces to the cloned repo's workspaces/ subdir
-    const workspacesPath = path.join(dest, 'workspaces');
-    if (!fs.existsSync(workspacesPath))
-      fs.mkdirSync(path.join(workspacesPath, '_global', 'test-cases'), { recursive: true });
-    res.json({ success: true, output: `Cloned to ${dest}`, workspacesDir: workspacesPath });
+
+    // Ensure standard dirs exist
+    for (const sub of ['agents', 'test-cases', 'config', 'results', 'logs'])
+      fs.mkdirSync(path.join(dest, sub), { recursive: true });
+
+    res.json({ success: true, output: `Cloned into ${dest}`, project: name, projectDir: dest });
+  } catch (e) {
+    // Clean up partial clone
+    try { fs.rmSync(dest, { recursive: true, force: true }); } catch {}
+    res.json({ success: false, output: e.message });
+  }
+});
+
+// ── POST /api/git/init ────────────────────────────────────
+// Initialize the current project directory as a new git repo.
+router.post('/init', async (req, res) => {
+  try {
+    const ws = new WS(getProject(req));
+    if (isGitRepo(ws.root))
+      return res.json({ success: false, output: 'Already a git repo.' });
+
+    const g = simpleGit(ws.root);
+    await g.init();
+    res.json({ success: true, output: `Initialized git repo at ${ws.root}` });
   } catch (e) {
     res.json({ success: false, output: e.message });
   }
