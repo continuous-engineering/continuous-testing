@@ -200,4 +200,25 @@ router.post('/smart-commit', async (req, res) => {
   }
 });
 
+// ── POST /api/git/clone ───────────────────────────────────
+router.post('/clone', async (req, res) => {
+  const { url, dest } = req.body;
+  if (!url || !dest)
+    return res.status(400).json({ success: false, output: 'url and dest are required' });
+
+  try {
+    const fs = require('fs');
+    fs.mkdirSync(dest, { recursive: true });
+    const g = simpleGit();
+    await g.clone(url, dest);
+    // Point workspaces to the cloned repo's workspaces/ subdir
+    const workspacesPath = path.join(dest, 'workspaces');
+    if (!fs.existsSync(workspacesPath))
+      fs.mkdirSync(path.join(workspacesPath, '_global', 'test-cases'), { recursive: true });
+    res.json({ success: true, output: `Cloned to ${dest}`, workspacesDir: workspacesPath });
+  } catch (e) {
+    res.json({ success: false, output: e.message });
+  }
+});
+
 module.exports = router;

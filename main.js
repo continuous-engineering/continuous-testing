@@ -85,6 +85,25 @@ ipcMain.handle('app:workspace-path', () => {
   return getWorkspacesDirectory();
 });
 
+ipcMain.handle('settings:get', () => {
+  return require('./src/settings').load();
+});
+
+ipcMain.handle('settings:set', (_e, data) => {
+  return require('./src/settings').save(data);
+});
+
+ipcMain.handle('dialog:open-folder', async () => {
+  const { dialog } = require('electron');
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Select Workspaces Directory',
+    buttonLabel: 'Select Folder',
+    message: 'Choose the workspaces/ folder inside your git repo',
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+
 // ── Scorer warm-up ────────────────────────────────────────
 
 function warmUpScorer() {

@@ -61,6 +61,9 @@
                 <div class="nav-item" id="nav-logs" onclick="switchPage('logs')">
                     <span>&#x1F4CB;</span> Logs
                 </div>
+                <div class="nav-item" id="nav-settings" onclick="switchPage('settings')">
+                    <span>&#9881;</span> Settings
+                </div>
                 <div class="nav-item" id="git-nav-item" onclick="switchPage('git')">
                     <span>&#10003;</span> Git Commit
                     <span id="git-dirty-dot" style="display:none;background:#e74c3c;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px;vertical-align:middle;" title="Uncommitted changes"></span>
@@ -687,6 +690,68 @@
                 <input type="text" id="new-project-name" placeholder="e.g. ecommerce, support-bot" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit;" onkeydown="if(event.key==='Enter')createProject()">
                 <p style="font-size:12px;color:#888;margin-top:6px;">Used as the folder name — lowercase letters, numbers, hyphens.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="settings-overlay" style="display:none;position:fixed;inset:0;background:#f5f5f5;z-index:1000;overflow-y:auto;">
+        <div style="background:#2c3e50;color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button class="btn" onclick="closeSettings()" style="background:#e74c3c;color:#fff;border:none;">&#8592; Back</button>
+            <span style="font-weight:600;font-size:17px;">Settings</span>
+        </div>
+        <div style="max-width:680px;margin:36px auto;padding:0 28px 60px;display:flex;flex-direction:column;gap:32px;">
+
+            <!-- Workspace Directory -->
+            <div class="settings-card">
+                <div class="settings-card-title">Workspace Directory</div>
+                <p class="settings-hint">Point this to the <code>workspaces/</code> folder inside a git repo. All agents, tests, and git operations use this location. Changes apply immediately — no restart needed.</p>
+                <div style="display:flex;gap:10px;margin-top:14px;align-items:center;">
+                    <input type="text" id="settings-workspace-path" placeholder="e.g. C:\repos\my-agents\workspaces" style="flex:1;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;background:#fff;">
+                    <button class="btn" id="settings-browse-btn" onclick="browseWorkspaceDir()" style="white-space:nowrap;">Browse&hellip;</button>
+                </div>
+                <div style="margin-top:8px;font-size:12px;color:#888;" id="settings-current-path"></div>
+                <div style="margin-top:16px;display:flex;gap:10px;align-items:center;">
+                    <button class="btn success" onclick="saveSettings()">Apply</button>
+                    <button class="btn" onclick="clearWorkspaceDir()" style="color:#e74c3c;border-color:#e74c3c;">Reset to Default</button>
+                    <span id="settings-save-status" style="font-size:13px;color:#27ae60;display:none;">Saved</span>
+                </div>
+            </div>
+
+            <!-- Clone Repo -->
+            <div class="settings-card">
+                <div class="settings-card-title">Clone a Workspace Repo</div>
+                <p class="settings-hint">Clone a git repository into a local folder. The app will set your workspace to <code>cloned-folder/workspaces/</code> automatically.</p>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;">
+                    <div>
+                        <label class="settings-label">Repository URL</label>
+                        <input type="text" id="clone-url" placeholder="https://github.com/org/repo.git" style="width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:flex-end;">
+                        <div style="flex:1;">
+                            <label class="settings-label">Clone Into Folder</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" id="clone-dest" placeholder="Choose parent folder..." style="flex:1;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;" readonly>
+                                <button class="btn" onclick="browseCloneDir()">Browse&hellip;</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn success" id="clone-btn" onclick="cloneRepo()" style="font-weight:600;">Clone Repository</button>
+                    </div>
+                    <div id="clone-output" style="display:none;background:#1e1e2e;color:#a6e3a1;font-family:monospace;font-size:13px;padding:14px;border-radius:6px;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
+                </div>
+            </div>
+
+            <!-- About -->
+            <div class="settings-card">
+                <div class="settings-card-title">About</div>
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:14px;color:#555;margin-top:8px;">
+                    <div><strong>Continuous.Testing</strong> <span id="settings-version" style="color:#888;font-size:13px;"></span></div>
+                    <div>by <a href="https://continuous.engineering" style="color:#3498db;text-decoration:none;">continuous.engineering</a></div>
+                    <div style="margin-top:10px;font-size:12px;color:#aaa;" id="settings-workspace-resolved"></div>
+                </div>
+            </div>
+
         </div>
     </div>
 

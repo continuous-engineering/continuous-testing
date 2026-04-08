@@ -22,6 +22,12 @@ function createServer() {
   app.use('/api/logs', require('./routes/logs'));
   app.use('/api/probe', require('./routes/probe'));
 
+  // App info
+  app.get('/api/settings/app-info', (req, res) => {
+    const pkg = require('../package.json');
+    res.json({ version: pkg.version, name: pkg.productName || pkg.name });
+  });
+
   // Root — serve index.html
   app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'static', 'index.html'));

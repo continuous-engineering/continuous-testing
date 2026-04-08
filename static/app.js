@@ -105,7 +105,8 @@ function switchPage(page, sourceEvent) {
         tags: 'Tags',
         reports: 'Reports',
         logs: 'Logs',
-        git: 'Git Commit'
+        git: 'Git Commit',
+        settings: 'Settings'
     }[page] || page;
 
     if (page === 'dashboard') loadDashboard();
@@ -119,6 +120,7 @@ function switchPage(page, sourceEvent) {
     else if (page === 'reports') loadReportsPage();
     else if (page === 'logs') loadLogsPage();
     else if (page === 'git') { loadGitStatus(); loadGitInfo(); }
+    else if (page === 'settings') openSettings();
 }
 
 function openModal(id) {
@@ -1684,3 +1686,126 @@ loadProjectsDropdown().then(() => {
 setInterval(() => {
     doGitSync();
 }, 5 * 60 * 1000);
+
+// ── Settings ──────────────────────────────────────────────
+
+async function openSettings() {
+    const overlay = document.getElementById('settings-overlay');
+    overlay.style.display = 'block';
+
+    // Load current settings
+    const pathEl  = document.getElementById('settings-workspace-path');
+    const infoEl  = document.getElementById('settings-current-path');
+    const resolved = document.getElementById('settings-workspace-resolved');
+    const versionEl = document.getElementById('settings-version');
+
+    if (window.electronAPI) {
+        const settings = await window.electronAPI.getSettings();
+        pathEl.value = settings.workspacesDir || '';
+        const current = await window.electronAPI.getWorkspacePath();
+        infoEl.textContent = `Active: ${current}`;
+        resolved.textContent = `Active workspace path: ${current}`;
+    } else {
+        document.getElementById('settings-browse-btn').disabled = true;
+        infoEl.textContent = 'Browse requires the desktop app.';
+    }
+
+    // Version from package info if available
+    try {
+        const r = await fetch('/api/settings/app-info');
+        if (r.ok) {
+            const d = await r.json();
+            if (versionEl) versionEl.textContent = `v${d.version}`;
+        }
+    } catch {}
+}
+
+function closeSettings() {
+    document.getElementById('settings-overlay').style.display = 'none';
+}
+
+async function browseWorkspaceDir() {
+    if (!window.electronAPI) return;
+    const folder = await window.electronAPI.openFolderDialog();
+    if (folder) {
+        document.getElementById('settings-workspace-path').value = folder;
+    }
+}
+
+async function browseCloneDir() {
+    if (!window.electronAPI) return;
+    const folder = await window.electronAPI.openFolderDialog();
+    if (folder) {
+        document.getElementById('clone-dest').value = folder;
+    }
+}
+
+async function saveSettings() {
+    const workspacesDir = document.getElementById('settings-workspace-path').value.trim();
+    if (!workspacesDir) { toast('Enter a workspace path first', 'warn'); return; }
+
+    if (window.electronAPI) {
+        await window.electronAPI.saveSettings({ workspacesDir });
+    } else {
+        await API.post('/settings', { workspacesDir });
+    }
+
+    document.getElementById('settings-current-path').textContent = `Active: ${workspacesDir}`;
+    const status = document.getElementById('settings-save-status');
+    status.style.display = 'inline';
+    setTimeout(() => { status.style.display = 'none'; }, 2500);
+    toast('Workspace path saved — reloading projects', 'success');
+
+    // Refresh the project dropdown with the new workspace
+    setTimeout(() => loadProjectsDropdown(), 300);
+}
+
+async function clearWorkspaceDir() {
+    if (!await uiConfirm('Reset workspace path to default (app data folder)?', 'Reset', 'danger')) return;
+    if (window.electronAPI) {
+        await window.electronAPI.saveSettings({ workspacesDir: '' });
+    }
+    document.getElementById('settings-workspace-path').value = '';
+    toast('Reset to default workspace', 'info');
+    setTimeout(() => loadProjectsDropdown(), 300);
+}
+
+async function cloneRepo() {
+    const url  = document.getElementById('clone-url').value.trim();
+    const dest = document.getElementById('clone-dest').value.trim();
+    const outputEl = document.getElementById('clone-output');
+    const btn = document.getElementById('clone-btn');
+
+    if (!url)  { toast('Enter a repository URL', 'warn'); return; }
+    if (!dest) { toast('Choose a destination folder', 'warn'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Cloning...';
+    outputEl.style.display = 'block';
+    outputEl.textContent = `Cloning ${url}\ninto ${dest} ...\n`;
+
+    try {
+        const res = await fetch('/api/git/clone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, dest })
+        });
+        const data = await res.json();
+        outputEl.textContent += data.output || '';
+
+        if (data.success && data.workspacesDir) {
+            outputEl.textContent += `\n✓ Workspace set to: ${data.workspacesDir}`;
+            document.getElementById('settings-workspace-path').value = data.workspacesDir;
+            await saveSettings();
+            toast('Cloned and workspace configured!', 'success');
+        } else {
+            toast(data.output || 'Clone failed', 'error');
+        }
+    } catch (e) {
+        outputEl.textContent += `\nError: ${e.message}`;
+        toast('Clone failed', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Clone Repository';
+    }
+}

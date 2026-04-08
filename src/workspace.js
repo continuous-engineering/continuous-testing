@@ -5,18 +5,27 @@ const RESERVED_PROJECTS = new Set(['_global']);
 
 /**
  * Resolve the workspaces root directory.
- * Dev: <projectRoot>/workspaces
- * Prod: <userData>/workspaces
+ * Priority: 1) user-configured path (settings.json)
+ *           2) userData/workspaces (packaged)
+ *           3) ./workspaces (dev)
  */
 function getWorkspacesDirectory() {
+  // 1. User-configured path takes highest priority
+  try {
+    const settings = require('./settings');
+    const saved = settings.load();
+    if (saved.workspacesDir) return saved.workspacesDir;
+  } catch { /* settings not available */ }
+
+  // 2. Packaged: use userData
   try {
     const { app } = require('electron');
     if (app && app.isPackaged) {
       return path.join(app.getPath('userData'), 'workspaces');
     }
-  } catch {
-    // Not running inside Electron (e.g., tests)
-  }
+  } catch { /* not in Electron */ }
+
+  // 3. Dev fallback
   return path.join(__dirname, '..', 'workspaces');
 }
 
