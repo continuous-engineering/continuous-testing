@@ -717,33 +717,56 @@
                 </div>
             </div>
 
-            <!-- Clone Repo -->
-            <div class="settings-card">
-                <div class="settings-card-title">Add a Project Repo</div>
-                <p class="settings-hint">Each project is its own git repo, cloned directly into your data folder. The repo becomes a new project in the sidebar. No extra folder structure needed — just paste the URL.</p>
-                <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;">
-                    <div>
-                        <label class="settings-label">Repository URL</label>
-                        <input type="text" id="clone-url" placeholder="https://github.com/org/e360-tests.git" style="width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;" oninput="updateClonePreview()">
+            <!-- Projects Table -->
+            <div class="settings-card" style="padding:0;overflow:hidden;">
+                <!-- Header bar -->
+                <div style="padding:18px 20px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div class="settings-card-title" style="margin:0;">Projects &amp; Git Remotes</div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" id="repos-filter" placeholder="Filter…" oninput="filterReposTable()"
+                            style="padding:6px 11px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;width:160px;">
+                        <button class="btn small" onclick="loadWorkspaceRepos()" title="Refresh">&#8635;</button>
                     </div>
-                    <div>
-                        <label class="settings-label">Project Name <span style="font-weight:400;color:#aaa;">(auto-derived from URL, editable)</span></label>
-                        <input type="text" id="clone-project-name" placeholder="e.g. e360" style="width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
-                        <div id="clone-dest-preview" style="font-size:12px;color:#888;margin-top:5px;"></div>
-                    </div>
-                    <div>
-                        <button class="btn success" id="clone-btn" onclick="cloneRepo()" style="font-weight:600;">Clone &amp; Add Project</button>
-                    </div>
-                    <div id="clone-output" style="display:none;background:#1e1e2e;color:#a6e3a1;font-family:monospace;font-size:13px;padding:14px;border-radius:6px;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
                 </div>
-            </div>
-
-            <!-- Workspace Repos -->
-            <div class="settings-card">
-                <div class="settings-card-title">Projects &amp; Git Remotes</div>
-                <p class="settings-hint">Each project can be its own git repo. Initialize new projects for local commits, or add a remote to enable push.</p>
-                <div id="workspace-repos-list" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
-                    <div style="color:#aaa;font-size:13px;">Loading…</div>
+                <!-- Scrollable table -->
+                <div style="overflow-x:auto;max-height:380px;overflow-y:auto;border-top:1px solid #eee;">
+                    <table id="repos-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f5f6f8;position:sticky;top:0;z-index:1;">
+                                <th onclick="sortReposBy('name')"  style="padding:9px 12px;text-align:left;font-weight:600;cursor:pointer;white-space:nowrap;border-bottom:2px solid #e0e0e8;width:150px;">Project <span id="sort-ind-name"></span></th>
+                                <th onclick="sortReposBy('branch')" style="padding:9px 12px;text-align:left;font-weight:600;cursor:pointer;white-space:nowrap;border-bottom:2px solid #e0e0e8;width:90px;">Branch <span id="sort-ind-branch"></span></th>
+                                <th onclick="sortReposBy('remote')" style="padding:9px 12px;text-align:left;font-weight:600;cursor:pointer;white-space:nowrap;border-bottom:2px solid #e0e0e8;">Remote <span id="sort-ind-remote"></span></th>
+                                <th style="padding:9px 12px;text-align:center;font-weight:600;border-bottom:2px solid #e0e0e8;width:70px;">Status</th>
+                                <th style="padding:9px 12px;text-align:center;font-weight:600;border-bottom:2px solid #e0e0e8;width:60px;">+/−</th>
+                                <th style="padding:9px 12px;text-align:right;font-weight:600;border-bottom:2px solid #e0e0e8;width:220px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="repos-tbody">
+                            <tr><td colspan="6" style="padding:18px;color:#aaa;text-align:center;">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Add project bar -->
+                <div style="padding:10px 20px 14px;border-top:1px solid #eee;">
+                    <button class="btn small success" onclick="toggleAddRepoForm()">+ Add Project</button>
+                    <div id="add-repo-form" style="display:none;margin-top:10px;">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                            <div style="display:flex;flex-direction:column;gap:4px;">
+                                <label style="font-size:11px;color:#888;font-weight:600;">Repository URL <span style="font-weight:400;">(blank = local init)</span></label>
+                                <input type="text" id="new-repo-url" placeholder="https://github.com/org/repo.git"
+                                    style="width:270px;padding:7px 10px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;"
+                                    oninput="deriveNewRepoName()">
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:4px;">
+                                <label style="font-size:11px;color:#888;font-weight:600;">Project name</label>
+                                <input type="text" id="new-repo-name" placeholder="e.g. e360"
+                                    style="width:130px;padding:7px 10px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;">
+                            </div>
+                            <button class="btn small success" id="add-repo-submit-btn" onclick="submitAddRepo()">Clone &amp; Add</button>
+                            <button class="btn small" onclick="toggleAddRepoForm()">Cancel</button>
+                        </div>
+                        <div id="add-repo-log" style="display:none;margin-top:8px;background:#1e1e2e;color:#a6e3a1;font-family:monospace;font-size:12px;padding:10px 14px;border-radius:5px;white-space:pre-wrap;max-height:100px;overflow-y:auto;"></div>
+                    </div>
                 </div>
             </div>
 

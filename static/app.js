@@ -1742,90 +1742,362 @@ async function openSettings() {
     loadWorkspaceRepos();
 }
 
-async function loadWorkspaceRepos() {
-    const container = document.getElementById('workspace-repos-list');
-    if (!container) return;
-    container.innerHTML = '<div style="color:#aaa;font-size:13px;">Loading…</div>';
+// ── Projects table ────────────────────────────────────────
+let _reposData  = [];
+let _reposSort  = { col: 'name', dir: 1 };
 
-    let repos = [];
+async function loadWorkspaceRepos() {
+    const tbody = document.getElementById('repos-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#aaa;text-align:center;">Loading…</td></tr>';
+
     try {
         const r = await fetch('/api/git/workspace-repos');
-        if (r.ok) repos = await r.json();
+        _reposData = r.ok ? await r.json() : [];
     } catch {
-        container.innerHTML = '<div style="color:#e74c3c;font-size:13px;">Failed to load repos.</div>';
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#e74c3c;text-align:center;">Failed to load projects.</td></tr>';
         return;
     }
 
-    if (!repos.length) {
-        container.innerHTML = '<div style="color:#aaa;font-size:13px;">No projects in this workspace yet.</div>';
+    renderReposTable();
+    // Load git status for each repo asynchronously
+    _reposData.forEach(repo => { if (repo.isRepo) loadRepoRowStatus(repo.name); });
+}
+
+function getFilteredSortedRepos() {
+    const q = (document.getElementById('repos-filter')?.value || '').toLowerCase().trim();
+    let list = q
+        ? _reposData.filter(r => r.name.toLowerCase().includes(q) || (r.remote || '').toLowerCase().includes(q))
+        : [..._reposData];
+    const { col, dir } = _reposSort;
+    list.sort((a, b) => {
+        const av = (a[col] || '').toLowerCase();
+        const bv = (b[col] || '').toLowerCase();
+        return av < bv ? -dir : av > bv ? dir : 0;
+    });
+    return list;
+}
+
+function renderReposTable() {
+    const tbody = document.getElementById('repos-tbody');
+    if (!tbody) return;
+    const list = getFilteredSortedRepos();
+
+    // Update sort indicators
+    ['name','branch','remote'].forEach(col => {
+        const el = document.getElementById(`sort-ind-${col}`);
+        if (el) el.textContent = _reposSort.col === col ? (_reposSort.dir === 1 ? ' ▲' : ' ▼') : '';
+    });
+
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#aaa;text-align:center;">No projects found.</td></tr>';
         return;
     }
 
-    container.innerHTML = repos.map(repo => {
-        const safeId = repo.name.replace(/[^a-z0-9_-]/gi, '_');
-        const statusColor = repo.isRepo ? (repo.remote ? '#27ae60' : '#f39c12') : '#aaa';
-        const statusLabel = repo.isRepo
-            ? (repo.remote ? `<span style="color:#27ae60;font-size:12px;">&#10003; ${repo.remote}</span>`
-                           : '<span style="color:#f39c12;font-size:12px;">local only — no remote</span>')
-            : '<span style="color:#aaa;font-size:12px;">not a git repo</span>';
+    tbody.innerHTML = list.map(repo => {
+        const sid = repo.name.replace(/[^a-z0-9_-]/gi, '_');
+        const remoteShort = repo.remote
+            ? repo.remote.replace(/^https?:\/\//, '').replace(/^git@/, '').replace(/.git$/, '')
+            : '';
 
-        const actionBtn = !repo.isRepo
-            ? `<button class="btn" style="font-size:12px;padding:5px 10px;" onclick="initRepo('${repo.name}')">Init Git</button>`
-            : `<button class="btn" style="font-size:12px;padding:5px 10px;" onclick="toggleRemoteForm('${safeId}')">
-                  ${repo.remote ? 'Change Remote' : 'Add Remote'}
-               </button>`;
+        const branchCell = repo.branch
+            ? `<code style="background:#f0f2f5;padding:2px 6px;border-radius:3px;font-size:12px;">${repo.branch}</code>`
+            : '<span style="color:#ccc;">—</span>';
 
-        return `<div style="background:#f9f9fb;border:1px solid #e8e8ee;border-radius:7px;padding:12px 14px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                <div>
-                    <div style="font-weight:600;font-size:14px;color:#2c3e50;">${repo.name}</div>
-                    <div style="margin-top:3px;">${statusLabel}${repo.branch ? `<span style="color:#aaa;font-size:12px;margin-left:8px;">@ ${repo.branch}</span>` : ''}</div>
-                </div>
-                <div>${actionBtn}</div>
-            </div>
-            <div id="remote-form-${safeId}" style="display:none;margin-top:10px;display:none;">
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="remote-url-${safeId}" placeholder="https://github.com/org/repo.git"
-                        style="flex:1;padding:8px 10px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;">
-                    <button class="btn success" style="font-size:12px;padding:6px 12px;" onclick="saveRemote('${repo.name}','${safeId}')">Save</button>
-                    <button class="btn" style="font-size:12px;padding:6px 10px;" onclick="toggleRemoteForm('${safeId}')">Cancel</button>
-                </div>
-            </div>
-        </div>`;
+        const remoteCell = repo.isRepo
+            ? `<span id="remote-display-${sid}" title="${repo.remote || ''}" style="font-size:12px;color:${repo.remote ? '#555' : '#f39c12'};">
+                ${repo.remote ? remoteShort : 'none'}
+               </span>`
+            : '<span style="color:#ccc;">—</span>';
+
+        const statusCell = repo.isRepo
+            ? `<span id="status-${sid}" style="font-size:11px;color:#aaa;">…</span>`
+            : '<span style="color:#ccc;">—</span>';
+
+        const aheadCell = repo.isRepo && repo.remote
+            ? `<span id="ahead-${sid}" style="font-size:11px;color:#aaa;">…</span>`
+            : '<span style="color:#ccc;">—</span>';
+
+        let actions;
+        if (!repo.isRepo) {
+            actions = `<button class="btn small" onclick="repoInit('${repo.name}')" style="font-size:11px;padding:4px 9px;">Init Git</button>`;
+        } else {
+            actions = `
+                <button class="btn small" onclick="repoGitOp('sync','${repo.name}','${sid}')"
+                    title="Pull &amp; rebase from remote" style="font-size:11px;padding:4px 9px;">&#8595; Sync</button>
+                <button class="btn small" onclick="toggleRepoCommit('${sid}')"
+                    title="Commit changes" style="font-size:11px;padding:4px 9px;">&#10003; Commit</button>
+                <button class="btn small" onclick="repoGitOp('push','${repo.name}','${sid}')"
+                    title="Push to remote" style="font-size:11px;padding:4px 9px;"${!repo.remote ? ' disabled' : ''}>&#8593; Push</button>
+                <button class="btn small" onclick="toggleRepoRemote('${sid}')"
+                    title="${repo.remote ? 'Change remote' : 'Add remote'}" style="font-size:11px;padding:4px 9px;background:#95a5a6;">&#9881;</button>`;
+        }
+
+        const rowStyle = 'border-bottom:1px solid #f0f0f5;';
+        return `
+        <tr id="row-${sid}" style="${rowStyle}">
+            <td style="padding:9px 12px;font-weight:600;color:#2c3e50;">${repo.name}</td>
+            <td style="padding:9px 12px;">${branchCell}</td>
+            <td style="padding:9px 12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${remoteCell}</td>
+            <td style="padding:9px 12px;text-align:center;">${statusCell}</td>
+            <td style="padding:9px 12px;text-align:center;">${aheadCell}</td>
+            <td style="padding:9px 12px;text-align:right;white-space:nowrap;">${actions}</td>
+        </tr>
+        <tr id="inline-${sid}" style="display:none;background:#fafbfc;">
+            <td colspan="6" style="padding:8px 14px;">
+                <div id="inline-content-${sid}"></div>
+            </td>
+        </tr>`;
     }).join('');
 }
 
-function toggleRemoteForm(safeId) {
-    const form = document.getElementById(`remote-form-${safeId}`);
-    if (!form) return;
-    const visible = form.style.display !== 'none';
-    form.style.display = visible ? 'none' : 'flex';
-    form.style.flexDirection = 'column';
-    if (!visible) document.getElementById(`remote-url-${safeId}`)?.focus();
+function filterReposTable() { renderReposTable(); }
+
+function sortReposBy(col) {
+    if (_reposSort.col === col) _reposSort.dir *= -1;
+    else { _reposSort.col = col; _reposSort.dir = 1; }
+    renderReposTable();
 }
 
-async function initRepo(projectName) {
+async function loadRepoRowStatus(name) {
+    const sid = name.replace(/[^a-z0-9_-]/gi, '_');
+    try {
+        const r = await fetch('/api/git/info', { headers: { 'X-Project': name } });
+        if (!r.ok) return;
+        const d = await r.json();
+
+        const statusEl = document.getElementById(`status-${sid}`);
+        const aheadEl  = document.getElementById(`ahead-${sid}`);
+        if (statusEl) {
+            if (d.dirty) {
+                statusEl.textContent = 'dirty';
+                statusEl.style.color = '#e67e22';
+            } else {
+                statusEl.textContent = 'clean';
+                statusEl.style.color = '#27ae60';
+            }
+        }
+        if (aheadEl) {
+            if (d.ahead || d.behind) {
+                aheadEl.textContent = `+${d.ahead} -${d.behind}`;
+                aheadEl.style.color = d.ahead ? '#3498db' : '#e74c3c';
+            } else {
+                aheadEl.textContent = '✓';
+                aheadEl.style.color = '#27ae60';
+            }
+        }
+    } catch {}
+}
+
+function toggleRepoCommit(sid) {
+    const row   = document.getElementById(`inline-${sid}`);
+    const panel = document.getElementById(`inline-content-${sid}`);
+    if (!row || !panel) return;
+    const open = row.style.display !== 'none';
+    // close all other inlines
+    document.querySelectorAll('[id^="inline-"]').forEach(el => {
+        if (!el.id.startsWith('inline-content-')) el.style.display = 'none';
+    });
+    if (!open) {
+        const name = sid.replace(/_/g, '-'); // approximate — panel carries data attr
+        panel.innerHTML = `
+            <div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
+                <input type="text" id="commit-msg-${sid}" placeholder="Commit message…"
+                    style="flex:1;padding:6px 10px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;"
+                    data-project="${sid}"
+                    onkeydown="if(event.key==='Enter') repoCommit('${sid}')">
+                <button class="btn small success" onclick="repoCommit('${sid}')" style="font-size:12px;">Commit</button>
+                <button class="btn small" onclick="toggleRepoCommit('${sid}')" style="font-size:12px;">Cancel</button>
+                <span id="commit-status-${sid}" style="font-size:12px;color:#888;"></span>
+            </div>`;
+        row.style.display = '';
+        document.getElementById(`commit-msg-${sid}`)?.focus();
+    }
+}
+
+async function repoCommit(sid) {
+    const msgEl = document.getElementById(`commit-msg-${sid}`);
+    const msg = msgEl?.value.trim();
+    if (!msg) { toast('Enter a commit message', 'warn'); return; }
+    const statusEl = document.getElementById(`commit-status-${sid}`);
+    if (statusEl) statusEl.textContent = 'committing…';
+
+    // Recover original project name from _reposData using sid match
+    const repo = _reposData.find(r => r.name.replace(/[^a-z0-9_-]/gi, '_') === sid);
+    if (!repo) return;
+
+    const r = await fetch('/api/git/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Project': repo.name },
+        body: JSON.stringify({ message: msg }),
+    });
+    const d = await r.json();
+    if (d.success) {
+        toast(`Committed: ${repo.name}`, 'success');
+        toggleRepoCommit(sid);
+        loadRepoRowStatus(repo.name);
+    } else {
+        if (statusEl) statusEl.textContent = d.output || 'Failed';
+        toast(d.output || 'Commit failed', 'error');
+    }
+}
+
+function toggleRepoRemote(sid) {
+    const row   = document.getElementById(`inline-${sid}`);
+    const panel = document.getElementById(`inline-content-${sid}`);
+    if (!row || !panel) return;
+    const open = row.style.display !== 'none';
+    document.querySelectorAll('[id^="inline-"]').forEach(el => {
+        if (!el.id.startsWith('inline-content-')) el.style.display = 'none';
+    });
+    if (!open) {
+        const repo = _reposData.find(r => r.name.replace(/[^a-z0-9_-]/gi, '_') === sid);
+        panel.innerHTML = `
+            <div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
+                <input type="text" id="remote-input-${sid}" placeholder="https://github.com/org/repo.git"
+                    value="${repo?.remote || ''}"
+                    style="flex:1;padding:6px 10px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;"
+                    onkeydown="if(event.key==='Enter') repoSetRemote('${sid}')">
+                <button class="btn small success" onclick="repoSetRemote('${sid}')" style="font-size:12px;">Save</button>
+                <button class="btn small" onclick="toggleRepoRemote('${sid}')" style="font-size:12px;">Cancel</button>
+            </div>`;
+        row.style.display = '';
+        document.getElementById(`remote-input-${sid}`)?.focus();
+    }
+}
+
+async function repoSetRemote(sid) {
+    const url = document.getElementById(`remote-input-${sid}`)?.value.trim();
+    if (!url) { toast('Enter a remote URL', 'warn'); return; }
+    const repo = _reposData.find(r => r.name.replace(/[^a-z0-9_-]/gi, '_') === sid);
+    if (!repo) return;
+
+    const r = await fetch('/api/git/remote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Project': repo.name },
+        body: JSON.stringify({ url }),
+    });
+    const d = await r.json();
+    if (d.success) {
+        toast(d.output, 'success');
+        repo.remote = url;
+        toggleRepoRemote(sid);
+        renderReposTable();
+        loadRepoRowStatus(repo.name);
+    } else {
+        toast(d.output || 'Failed to set remote', 'error');
+    }
+}
+
+async function repoInit(projectName) {
     const r = await fetch('/api/git/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Project': projectName },
     });
     const d = await r.json();
-    if (d.success) { toast(`Git initialized for ${projectName}`, 'success'); loadWorkspaceRepos(); }
+    if (d.success) { toast(`Git initialized: ${projectName}`, 'success'); loadWorkspaceRepos(); }
     else toast(d.output || 'Init failed', 'error');
 }
 
-async function saveRemote(projectName, safeId) {
-    const url = document.getElementById(`remote-url-${safeId}`)?.value.trim();
-    if (!url) { toast('Enter a remote URL', 'warn'); return; }
+async function repoGitOp(op, projectName, sid) {
+    const btn = document.querySelector(`#row-${sid} button[onclick*="${op}"]`);
+    const origText = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
 
-    const r = await fetch('/api/git/remote', {
+    const r = await fetch(`/api/git/${op}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Project': projectName },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({}),
     });
     const d = await r.json();
-    if (d.success) { toast(d.output, 'success'); loadWorkspaceRepos(); }
-    else toast(d.output || 'Failed to set remote', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+
+    if (d.success) {
+        toast(`${op === 'sync' ? 'Synced' : 'Pushed'}: ${projectName}`, 'success');
+        loadRepoRowStatus(projectName);
+    } else {
+        toast(d.output || `${op} failed`, 'error');
+    }
+}
+
+// ── Add project (table footer form) ──────────────────────
+function toggleAddRepoForm() {
+    const form = document.getElementById('add-repo-form');
+    if (!form) return;
+    const open = form.style.display !== 'none';
+    form.style.display = open ? 'none' : 'block';
+    if (!open) {
+        document.getElementById('new-repo-url').value = '';
+        document.getElementById('new-repo-name').value = '';
+        const log = document.getElementById('add-repo-log');
+        log.style.display = 'none'; log.textContent = '';
+        document.getElementById('new-repo-url').focus();
+    }
+}
+
+function deriveNewRepoName() {
+    const url = document.getElementById('new-repo-url').value.trim();
+    const nameEl = document.getElementById('new-repo-name');
+    if (url && !nameEl.value) {
+        nameEl.value = url.split('/').pop().replace(/\.git$/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    }
+}
+
+async function submitAddRepo() {
+    const url  = document.getElementById('new-repo-url').value.trim();
+    const name = document.getElementById('new-repo-name').value.trim();
+    const btn  = document.getElementById('add-repo-submit-btn');
+    const log  = document.getElementById('add-repo-log');
+
+    log.style.display = 'block';
+
+    if (url) {
+        // Clone
+        btn.disabled = true; btn.textContent = 'Cloning…';
+        log.textContent = `Cloning ${url} …\n`;
+        try {
+            const r = await fetch('/api/git/clone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, project_name: name || undefined }),
+            });
+            const d = await r.json();
+            log.textContent += d.output || '';
+            if (d.success) {
+                log.textContent += `\n✓ Added "${d.project}"`;
+                toast(`Project "${d.project}" cloned`, 'success');
+                toggleAddRepoForm();
+                await loadWorkspaceRepos();
+                await loadProjectsDropdown();
+                switchProject(d.project);
+            } else {
+                toast(d.output || 'Clone failed', 'error');
+            }
+        } catch (e) {
+            log.textContent += `\nError: ${e.message}`;
+            toast('Clone failed', 'error');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Clone & Add';
+        }
+    } else if (name) {
+        // Local init
+        log.textContent = `Initializing local project "${name}" …\n`;
+        const r = await fetch('/api/git/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Project': name },
+        });
+        const d = await r.json();
+        log.textContent += d.output || '';
+        if (d.success) {
+            toast(`Project "${name}" initialized`, 'success');
+            toggleAddRepoForm();
+            await loadWorkspaceRepos();
+        } else {
+            toast(d.output || 'Init failed', 'error');
+        }
+    } else {
+        toast('Enter a URL to clone, or a project name for a local init', 'warn');
+    }
 }
 
 function closeSettings() {
@@ -1850,18 +2122,6 @@ async function browseWorkspaceDir() {
     }
 }
 
-function updateClonePreview() {
-    const url = document.getElementById('clone-url').value.trim();
-    const nameEl = document.getElementById('clone-project-name');
-    const previewEl = document.getElementById('clone-dest-preview');
-    if (url && !nameEl.value) {
-        const derived = url.split('/').pop().replace(/\.git$/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-        nameEl.value = derived;
-    }
-    const name = nameEl.value.trim();
-    if (name) previewEl.textContent = `Will clone into: <data-folder>/${name}/`;
-    else previewEl.textContent = '';
-}
 
 async function saveSettings() {
     const workspacesDir = document.getElementById('settings-workspace-path').value.trim();
@@ -1893,41 +2153,3 @@ async function clearWorkspaceDir() {
     setTimeout(() => loadProjectsDropdown(), 300);
 }
 
-async function cloneRepo() {
-    const url         = document.getElementById('clone-url').value.trim();
-    const projectName = document.getElementById('clone-project-name').value.trim();
-    const outputEl    = document.getElementById('clone-output');
-    const btn         = document.getElementById('clone-btn');
-
-    if (!url) { toast('Enter a repository URL', 'warn'); return; }
-
-    btn.disabled = true;
-    btn.textContent = 'Cloning...';
-    outputEl.style.display = 'block';
-    outputEl.textContent = `Cloning ${url} ...\n`;
-
-    try {
-        const res = await fetch('/api/git/clone', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, project_name: projectName || undefined })
-        });
-        const data = await res.json();
-        outputEl.textContent += data.output || '';
-
-        if (data.success) {
-            outputEl.textContent += `\n✓ Project "${data.project}" added`;
-            toast(`Project "${data.project}" cloned and ready`, 'success');
-            await loadProjectsDropdown();
-            switchProject(data.project);
-        } else {
-            toast(data.output || 'Clone failed', 'error');
-        }
-    } catch (e) {
-        outputEl.textContent += `\nError: ${e.message}`;
-        toast('Clone failed', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Clone & Add Project';
-    }
-}
