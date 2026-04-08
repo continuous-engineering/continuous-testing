@@ -10,7 +10,7 @@
     <div class="container">
         <!-- Sidebar Navigation -->
         <div class="sidebar">
-            <h1>&#x1F680; Test Manager</h1>
+            <h1>&#x1F680; Continous.Testing</h1>
 
             <!-- Project selector -->
             <div style="margin-bottom:20px;padding-bottom:15px;border-bottom:1px solid rgba(255,255,255,0.15);">
@@ -735,6 +735,15 @@
                         <button class="btn success" id="clone-btn" onclick="cloneRepo()" style="font-weight:600;">Clone &amp; Add Project</button>
                     </div>
                     <div id="clone-output" style="display:none;background:#1e1e2e;color:#a6e3a1;font-family:monospace;font-size:13px;padding:14px;border-radius:6px;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
+                </div>
+            </div>
+
+            <!-- Workspace Repos -->
+            <div class="settings-card">
+                <div class="settings-card-title">Projects &amp; Git Remotes</div>
+                <p class="settings-hint">Each project can be its own git repo. Initialize new projects for local commits, or add a remote to enable push.</p>
+                <div id="workspace-repos-list" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+                    <div style="color:#aaa;font-size:13px;">Loading…</div>
                 </div>
             </div>
 

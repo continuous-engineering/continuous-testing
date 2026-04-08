@@ -1,4 +1,4 @@
-# AI-Test — Agent Test Manager (Electron)
+# AI-Test — Agent Continous.Testing (Electron)
 
 Desktop app for testing AI agents. Testers download one installer and run — no Python, no Node.js, no CLI required.
 

@@ -1,7 +1,7 @@
 {
   "name": "continuous-testing",
   "version": "0.1.0",
-  "description": "Continuous.Testing — AI agent test manager by continuous.engineering",
+  "description": "Continuous.Testing — AI agent testing by continuous.engineering",
   "author": {
     "name": "Shree Mandadi",
     "email": "shree@continuous.engineering",
@@ -79,6 +79,7 @@
         ]
       }
     ],
+    "artifactName": "${productName}-${version}.${ext}",
     "win": {
       "target": [
         {

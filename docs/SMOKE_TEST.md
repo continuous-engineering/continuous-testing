@@ -1,4 +1,4 @@
-# Smoke Test Checklist — Agent Test Manager
+# Smoke Test Checklist — Agent Continuous.Testing
 
 Run this checklist after every installer build before distributing.
 

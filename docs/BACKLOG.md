@@ -1,4 +1,4 @@
-# Backlog — AI-Test Agent Test Manager (Electron)
+# Backlog — AI-Test Agent Continous.Testing (Electron)
 
 ## Status Legend
 

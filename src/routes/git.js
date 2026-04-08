@@ -265,6 +265,60 @@ router.post('/clone', async (req, res) => {
   }
 });
 
+// ── GET /api/git/workspace-repos ─────────────────────────
+// List all projects in the workspace with their git + remote status.
+// No X-Project header needed — workspace-wide scan.
+router.get('/workspace-repos', async (req, res) => {
+  const workspacesDir = getWorkspacesDirectory();
+  if (!fs.existsSync(workspacesDir)) return res.json([]);
+
+  const entries = [];
+  for (const name of fs.readdirSync(workspacesDir).sort()) {
+    const dir = path.join(workspacesDir, name);
+    try { if (!fs.statSync(dir).isDirectory()) continue; } catch { continue; }
+    if (name === '_global') continue;
+
+    const isRepo = isGitRepo(dir);
+    let remote = null;
+    let branch = null;
+    if (isRepo) {
+      try {
+        const g = simpleGit(dir);
+        const remotes = await g.getRemotes(true);
+        const origin = remotes.find(r => r.name === 'origin');
+        remote = origin?.refs?.fetch || null;
+        branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || null;
+      } catch {}
+    }
+    entries.push({ name, isRepo, remote, branch });
+  }
+  res.json(entries);
+});
+
+// ── POST /api/git/remote ──────────────────────────────────
+// Add or update the `origin` remote for the current project.
+router.post('/remote', async (req, res) => {
+  const { url } = req.body;
+  if (!url?.trim()) return res.status(400).json({ success: false, output: 'url is required' });
+
+  try {
+    const ws = new WS(getProject(req));
+    if (!isGitRepo(ws.root))
+      return res.json({ success: false, output: 'Not a git repo — initialize it first.' });
+
+    const g = projectGit(ws);
+    const remotes = await g.getRemotes();
+    if (remotes.find(r => r.name === 'origin')) {
+      await g.remote(['set-url', 'origin', url.trim()]);
+    } else {
+      await g.addRemote('origin', url.trim());
+    }
+    res.json({ success: true, output: `Remote origin → ${url.trim()}` });
+  } catch (e) {
+    res.json({ success: false, output: e.message });
+  }
+});
+
 // ── POST /api/git/init ────────────────────────────────────
 // Initialize the current project directory as a new git repo.
 router.post('/init', async (req, res) => {

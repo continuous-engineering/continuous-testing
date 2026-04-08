@@ -1,4 +1,4 @@
-# Bundle Plan — AI-Test Agent Test Manager (Electron)
+# Bundle Plan — AI-Test Agent Continuous.Testing (Electron)
 
 Migration from Python/Starlette to pure Electron + Node.js/Express.
 Goal: single `.exe` installer, zero prerequisites for testers.

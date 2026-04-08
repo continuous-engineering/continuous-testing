@@ -85,7 +85,8 @@ function uiConfirm(msg, okLabel='Delete', okStyle='danger') {
 // Navigation
 function switchPage(page, sourceEvent) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(page).classList.add('active');
+    const pageEl = document.getElementById(page);
+    if (pageEl) pageEl.classList.add('active');
 
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     const e = sourceEvent || event;
@@ -1713,8 +1714,8 @@ async function openSettings() {
 
     if (window.electronAPI) {
         const settings = await window.electronAPI.getSettings();
-        pathEl.value = settings.workspacesDir || '';
         const current = await window.electronAPI.getWorkspacePath();
+        pathEl.value = settings.workspacesDir || current;
         infoEl.textContent = `Active: ${current}`;
         resolved.textContent = `Active workspace path: ${current}`;
     } else {
@@ -1730,6 +1731,94 @@ async function openSettings() {
             if (versionEl) versionEl.textContent = `v${d.version}`;
         }
     } catch {}
+
+    loadWorkspaceRepos();
+}
+
+async function loadWorkspaceRepos() {
+    const container = document.getElementById('workspace-repos-list');
+    if (!container) return;
+    container.innerHTML = '<div style="color:#aaa;font-size:13px;">Loading…</div>';
+
+    let repos = [];
+    try {
+        const r = await fetch('/api/git/workspace-repos');
+        if (r.ok) repos = await r.json();
+    } catch {
+        container.innerHTML = '<div style="color:#e74c3c;font-size:13px;">Failed to load repos.</div>';
+        return;
+    }
+
+    if (!repos.length) {
+        container.innerHTML = '<div style="color:#aaa;font-size:13px;">No projects in this workspace yet.</div>';
+        return;
+    }
+
+    container.innerHTML = repos.map(repo => {
+        const safeId = repo.name.replace(/[^a-z0-9_-]/gi, '_');
+        const statusColor = repo.isRepo ? (repo.remote ? '#27ae60' : '#f39c12') : '#aaa';
+        const statusLabel = repo.isRepo
+            ? (repo.remote ? `<span style="color:#27ae60;font-size:12px;">&#10003; ${repo.remote}</span>`
+                           : '<span style="color:#f39c12;font-size:12px;">local only — no remote</span>')
+            : '<span style="color:#aaa;font-size:12px;">not a git repo</span>';
+
+        const actionBtn = !repo.isRepo
+            ? `<button class="btn" style="font-size:12px;padding:5px 10px;" onclick="initRepo('${repo.name}')">Init Git</button>`
+            : `<button class="btn" style="font-size:12px;padding:5px 10px;" onclick="toggleRemoteForm('${safeId}')">
+                  ${repo.remote ? 'Change Remote' : 'Add Remote'}
+               </button>`;
+
+        return `<div style="background:#f9f9fb;border:1px solid #e8e8ee;border-radius:7px;padding:12px 14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div>
+                    <div style="font-weight:600;font-size:14px;color:#2c3e50;">${repo.name}</div>
+                    <div style="margin-top:3px;">${statusLabel}${repo.branch ? `<span style="color:#aaa;font-size:12px;margin-left:8px;">@ ${repo.branch}</span>` : ''}</div>
+                </div>
+                <div>${actionBtn}</div>
+            </div>
+            <div id="remote-form-${safeId}" style="display:none;margin-top:10px;display:none;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="remote-url-${safeId}" placeholder="https://github.com/org/repo.git"
+                        style="flex:1;padding:8px 10px;border:1.5px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;">
+                    <button class="btn success" style="font-size:12px;padding:6px 12px;" onclick="saveRemote('${repo.name}','${safeId}')">Save</button>
+                    <button class="btn" style="font-size:12px;padding:6px 10px;" onclick="toggleRemoteForm('${safeId}')">Cancel</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleRemoteForm(safeId) {
+    const form = document.getElementById(`remote-form-${safeId}`);
+    if (!form) return;
+    const visible = form.style.display !== 'none';
+    form.style.display = visible ? 'none' : 'flex';
+    form.style.flexDirection = 'column';
+    if (!visible) document.getElementById(`remote-url-${safeId}`)?.focus();
+}
+
+async function initRepo(projectName) {
+    const r = await fetch('/api/git/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Project': projectName },
+    });
+    const d = await r.json();
+    if (d.success) { toast(`Git initialized for ${projectName}`, 'success'); loadWorkspaceRepos(); }
+    else toast(d.output || 'Init failed', 'error');
+}
+
+async function saveRemote(projectName, safeId) {
+    const url = document.getElementById(`remote-url-${safeId}`)?.value.trim();
+    if (!url) { toast('Enter a remote URL', 'warn'); return; }
+
+    const r = await fetch('/api/git/remote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Project': projectName },
+        body: JSON.stringify({ url }),
+    });
+    const d = await r.json();
+    if (d.success) { toast(d.output, 'success'); loadWorkspaceRepos(); }
+    else toast(d.output || 'Failed to set remote', 'error');
 }
 
 function closeSettings() {
