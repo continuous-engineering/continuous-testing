@@ -18,7 +18,7 @@
     "build:win":    "electron-builder --win",
     "build:clean":  "npm run clean && npm run build",
     "lint":         "node --check main.js preload.js src/server.js src/store.js src/workspace.js src/helpers.js src/executor.js src/scorer.js src/settings.js",
-    "lint:routes":  "node --check src/routes/*.js",
+    "lint:routes":  "node -e \"require('fs').readdirSync('src/routes').filter(f=>f.endsWith('.js')).forEach(f=>{require('child_process').execSync('node --check src/routes/'+f,{stdio:'inherit'})})\"",
     "lint:all":     "npm run lint && npm run lint:routes",
     "clean":        "node -e \"const fs=require('fs');['dist','node_modules/.cache'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch{}})\"",
     "clean:all":    "node -e \"const fs=require('fs');['dist','node_modules'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch{}})\"",
