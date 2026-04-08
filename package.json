@@ -46,8 +46,9 @@
       "buildResources": "build"
     },
     "publish": {
-      "provider": "generic",
-      "url": "https://releases.continuous.engineering/agent-test-manager/"
+      "provider": "github",
+      "owner": "continuous-engineering",
+      "repo": "continuous-testing"
     },
     "files": [
       "main.js",
