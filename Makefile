@@ -5,7 +5,7 @@
 # macOS / Linux: standard make, no extras needed.
 # ─────────────────────────────────────────────────────────────────────────────
 
-.PHONY: help install dev start build release lint check icon clean clean-all
+.PHONY: help install dev start build release lint check clean clean-all
 
 # ── Default ───────────────────────────────────────────────────────────────────
 help:
@@ -19,7 +19,6 @@ help:
 	@echo "  make release     Clean build — clean + install + build"
 	@echo "  make lint        Syntax-check all source files"
 	@echo "  make check       Alias for lint"
-	@echo "  make icon        Rebuild icons from build/favicon.svg"
 	@echo "  make clean       Remove dist/ and build caches"
 	@echo "  make clean-all   Remove dist/ AND node_modules/ (full reset)"
 	@echo ""
@@ -53,14 +52,6 @@ lint: node_modules
 	npm run lint:all
 
 check: lint
-
-# ── Assets ────────────────────────────────────────────────────────────────────
-icon: node_modules build/favicon.svg
-	npm run icon
-
-build/favicon.svg:
-	@echo "ERROR: build/favicon.svg not found. Add your SVG icon first."
-	@exit 1
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:
