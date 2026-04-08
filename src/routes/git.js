@@ -112,17 +112,14 @@ router.post('/sync', async (req, res) => {
   try {
     const ws = new WS(getProject(req));
 
-    // _global: auto-bootstrap if not yet a git repo, then pull
+    // _global: auto-bootstrap if not yet a git repo, then fall through to sync
     if (ws.project === '_global' && !isGitRepo(ws.root)) {
       const g = simpleGit(ws.root);
       await g.init();
       await g.addRemote('origin', GLOBAL_REMOTE);
       await g.fetch(['origin']);
-      try {
-        await g.raw(['checkout', '-b', 'main', 'origin/main']);
-      } catch {
-        await g.raw(['reset', '--hard', 'origin/main']);
-      }
+      // checkout onto origin/main — works on unborn HEAD (no commits yet)
+      await g.raw(['checkout', '-b', 'main', '--track', 'origin/main']);
       return res.json({ success: true, output: '_global initialized and synced from continuous.engineering', conflicts: [], dirty: false });
     }
 
@@ -140,7 +137,16 @@ router.post('/sync', async (req, res) => {
     }
 
     await g.fetch(['--all']);
-    const branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
+
+    // Guard against unborn HEAD (init ran but checkout never completed)
+    let branch;
+    try {
+      branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
+    } catch {
+      // HEAD is unborn — finish the checkout now
+      await g.raw(['checkout', '-b', 'main', '--track', 'origin/main']);
+      return res.json({ success: true, output: 'Sync complete', conflicts: [], dirty: false });
+    }
     const tracking = `origin/${branch}`;
 
     try { await g.raw(['rev-parse', '--verify', tracking]); } catch {
