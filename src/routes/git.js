@@ -112,13 +112,19 @@ router.post('/sync', async (req, res) => {
   try {
     const ws = new WS(getProject(req));
 
-    // _global: auto-bootstrap if not yet a git repo, then fall through to sync
+    // _global: bootstrap on first use — directory may not exist at all
     if (ws.project === '_global' && !isGitRepo(ws.root)) {
+      if (!fs.existsSync(ws.root)) {
+        // Fresh install — clone directly into workspaces/_global/
+        fs.mkdirSync(ws.workspacesDir, { recursive: true });
+        await simpleGit(ws.workspacesDir).clone(GLOBAL_REMOTE, '_global');
+        return res.json({ success: true, output: '_global cloned from continuous.engineering', conflicts: [], dirty: false });
+      }
+      // Directory exists but no .git (e.g. bundled YAML files, no repo yet)
       const g = simpleGit(ws.root);
       await g.init();
       await g.addRemote('origin', GLOBAL_REMOTE);
       await g.fetch(['origin']);
-      // checkout onto origin/main — works on unborn HEAD (no commits yet)
       await g.raw(['checkout', '-b', 'main', '--track', 'origin/main']);
       return res.json({ success: true, output: '_global initialized and synced from continuous.engineering', conflicts: [], dirty: false });
     }
