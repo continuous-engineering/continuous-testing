@@ -28,13 +28,13 @@ jobs:
       - name: Lint
         run: npm run lint:all
 
-      - name: Stamp dev version
+      - name: Stamp beta version
         shell: bash
         run: |
           BASE=$(node -p "require('./package.json').version")
-          DEV_VERSION="${BASE}-dev.${{ github.run_number }}"
-          echo "DEV_VERSION=$DEV_VERSION" >> $GITHUB_ENV
-          npm version "$DEV_VERSION" --no-git-tag-version
+          BETA_VERSION="${BASE}-beta.${{ github.run_number }}"
+          echo "BETA_VERSION=$BETA_VERSION" >> $GITHUB_ENV
+          npm version "$BETA_VERSION" --no-git-tag-version
 
       - name: Build
         run: npm run build:win
@@ -45,13 +45,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: dev-latest
-          name: "Dev Build ${{ env.DEV_VERSION }}"
+          name: "Beta Build ${{ env.BETA_VERSION }}"
           body: |
-            Rolling dev build from `dev` branch.
+            Rolling beta build from `dev` branch.
             Commit: ${{ github.sha }}
             Built: ${{ github.run_number }}
 
-            > Not stable — for testing only.
+            > Pre-release — for beta testers only.
           files: dist/*.exe
           prerelease: true
           draft: false

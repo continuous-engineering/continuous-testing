@@ -179,9 +179,16 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ── Auto-updater (stub — activate when release feed is live) ──
-// Uncomment when publish.url in package.json points to a real feed:
-//
-// const { autoUpdater } = require('electron-updater');
-// autoUpdater.logger = require('electron').nativeTheme; // swap for a real logger
-// autoUpdater.checkForUpdatesAndNotify();
+// ── Auto-updater ──────────────────────────────────────────────
+// Disabled in dev. In production, reads updateChannel from settings:
+//   'latest' → stable releases only (default)
+//   'beta'   → beta + stable releases (dev branch builds)
+if (app.isPackaged) {
+  const { autoUpdater } = require('electron-updater');
+  const settings = require('./src/settings');
+  const channel = settings.load().updateChannel || 'latest';
+  autoUpdater.channel = channel;
+  autoUpdater.allowPrerelease = channel === 'beta';
+  autoUpdater.autoDownload = true;
+  autoUpdater.checkForUpdatesAndNotify();
+}
