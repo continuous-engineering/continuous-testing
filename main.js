@@ -39,7 +39,12 @@ function migrateWorkspacesIfNeeded() {
 // ── Server startup ─────────────────────────────────────────
 
 async function startExpress() {
-  const port = await portfinder.getPortPromise({ port: 8000, stopPort: 9000 });
+  // Pre-require heavy modules in parallel with port scan
+  const [port] = await Promise.all([
+    portfinder.getPortPromise({ port: 8000, stopPort: 9000 }),
+    // Warm up require cache for large modules so first API call is fast
+    Promise.resolve().then(() => { try { require('js-yaml'); require('simple-git'); } catch {} }),
+  ]);
   const createApp = require('./src/server');
   const expressApp = createApp();
 
@@ -124,8 +129,8 @@ app.whenReady().then(async () => {
   try {
     const port = await startExpress();
     createWindow(port);
-    // Warm up scorer after window is shown so it doesn't block startup
-    mainWindow.once('ready-to-show', () => warmUpScorer());
+    // Warm up scorer 3s after window shows — keeps startup fast
+    mainWindow.once('ready-to-show', () => setTimeout(warmUpScorer, 3000));
   } catch (err) {
     console.error('Failed to start server:', err);
     app.quit();
