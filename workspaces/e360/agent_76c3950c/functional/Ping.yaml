@@ -1,9 +1,0 @@
-category: ''
-expected_latency_ms: 5000
-expected_response: This is a Social Post
-min_semantic_match: 0.75
-priority: medium
-tags: []
-test_id: Ping
-test_name: Ping
-user_prompt: I am going to a party to-night

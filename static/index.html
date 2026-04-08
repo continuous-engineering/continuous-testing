@@ -185,6 +185,7 @@
                                         <th>Name</th>
                                         <th>Endpoint</th>
                                         <th>Model</th>
+                                        <th>Tags</th>
                                         <th>Tests</th>
                                         <th>Status</th>
                                         <th>Actions</th>
@@ -438,6 +439,11 @@
                 <input type="text" id="agent-model" placeholder="v1.0" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
             </div>
             <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Agent Tags</label>
+                <p style="font-size:12px;color:#888;margin-bottom:8px;">Tag this agent (comma-separated). Use these tags in Test Plans to dynamically select which agents to run.</p>
+                <input type="text" id="agent-tags" placeholder="e.g. prod, v2, social-media, staging" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
+            </div>
+            <div>
                 <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Auth Type</label>
                 <select id="agent-auth-type" onchange="toggleAuthFields()" style="width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
                     <option value="none">None</option>
@@ -488,9 +494,6 @@
                     <option value="">Select Agent...</option>
                 </select>
             </span>
-            <select id="te-probe-agent" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px; background:#2c3e50; color:#aaa;">
-                <option value="">Try against agent...</option>
-            </select>
             <select id="te-suite" style="padding:6px 10px; border-radius:4px; border:none; font-size:13px;">
                 <option value="functional">Functional</option>
                 <option value="security">Security</option>
@@ -647,16 +650,24 @@
 
             <!-- Agent Selection -->
             <div>
-                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Agents</label>
-                <p style="font-size:13px;color:#888;margin-bottom:12px;">Select agents to include — leave all unchecked to run against every agent.</p>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Target Agents — Explicit</label>
+                <p style="font-size:13px;color:#888;margin-bottom:12px;">Select specific agents. Takes priority over tag-based selection. Leave all unchecked to use tags or all agents.</p>
                 <div id="rc-agents-checks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;"></div>
             </div>
 
-            <!-- Tag Filter -->
+            <!-- Agent Tag Filter -->
             <div>
-                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Test Tag Filter</label>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Target Agents — By Tag</label>
+                <p style="font-size:13px;color:#888;margin-bottom:8px;">Run against agents that have <strong>any</strong> of these tags. Only used when no specific agents are checked above. Leave empty to run all agents.</p>
+                <input type="text" id="rc-agent-tags" placeholder="e.g. prod, staging, v2"
+                       style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
+            </div>
+
+            <!-- Test Case Tag Filter -->
+            <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Test Case Tag Filter</label>
                 <p style="font-size:13px;color:#888;margin-bottom:8px;">Only run test cases that have at least one of these tags. Leave empty to run all tests.</p>
-                <input type="text" id="rc-tags" placeholder="auth, critical, smoke"
+                <input type="text" id="rc-tags" placeholder="auth, security, smoke"
                        style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;">
             </div>
         </div>

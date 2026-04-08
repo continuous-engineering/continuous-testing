@@ -205,10 +205,14 @@ async function loadAgentsPage() {
             const row = document.createElement('tr');
             const testCount = (agent.suites?.functional?.test_count || 0) +
                              (agent.suites?.security?.test_count || 0);
+            const agentTagsHtml = (agent.tags || []).map(t =>
+                `<span style="background:#e8f4fd;color:#1a5276;padding:1px 7px;border-radius:10px;font-size:11px;margin:1px;">${escHtml(t)}</span>`
+            ).join('') || '<span style="color:#ccc;font-size:12px;">—</span>';
             row.innerHTML = `
                 <td>${agent.name}</td>
                 <td><code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;">${agent.endpoint || '—'}</code></td>
                 <td>${agent.model_version || '—'}</td>
+                <td>${agentTagsHtml}</td>
                 <td>${testCount}</td>
                 <td><span class="badge badge-pass">${agent.status}</span></td>
                 <td>
@@ -346,27 +350,51 @@ async function loadTestRunsPage() {
             return;
         }
 
+        let anyRunning = false;
         runs.slice().reverse().forEach(run => {
             const row = document.createElement('tr');
             const status = run.status || 'pending';
+            if (status === 'running') anyRunning = true;
+            row.setAttribute('data-run-status', status);
+
             const passRate = run.pass_rate != null ? (run.pass_rate * 100).toFixed(1) + '%' : '-';
             const s = run.summary || {};
             const planCell = run.config_name
                 ? `<span style="background:#e8f4fd;color:#1a5276;padding:2px 8px;border-radius:10px;font-size:12px;white-space:nowrap;">${run.config_name}</span>`
                 : `<span style="color:#bbb;font-size:12px;">Quick</span>`;
+
+            let statusCell;
+            if (status === 'running') {
+                const prog = run.progress || {};
+                const done = prog.completed || 0;
+                const total = prog.total || 0;
+                const pct = total ? Math.round(done / total * 100) : 0;
+                statusCell = `<div>
+                    <span class="badge badge-running">running</span>
+                    <div style="margin-top:4px;background:#e0e0e0;border-radius:3px;height:4px;width:80px;display:inline-block;vertical-align:middle;">
+                        <div style="background:#3498db;height:100%;border-radius:3px;width:${pct}%;transition:width .5s;"></div>
+                    </div>
+                    <span style="font-size:11px;color:#888;margin-left:4px;">${done}/${total}</span>
+                </div>`;
+            } else {
+                statusCell = `<span class="badge badge-${status}">${status}</span>`;
+            }
+
             row.innerHTML = `
                 <td>${planCell}</td>
                 <td>${run.agent_name || run.agent_id}</td>
                 <td>${run.suite_type}</td>
-                <td><span class="badge badge-${status}">${status}</span></td>
+                <td>${statusCell}</td>
                 <td>${s.passed || 0}P / ${s.failed || 0}F / ${s.errors || 0}E</td>
                 <td>${passRate}</td>
-                <td>${run.duration_seconds || 0}s</td>
+                <td>${run.duration_seconds != null ? run.duration_seconds + 's' : '—'}</td>
                 <td style="font-size:12px;">${new Date(run.started_at).toLocaleString()}</td>
-                <td><button class="btn small" onclick="viewTestRun('${run.run_id}')">View</button></td>
+                <td><button class="btn small" onclick="viewTestRun('${run.run_id}')" ${status==='running'?'disabled style="opacity:.5"':''}>View</button></td>
             `;
             tbody.appendChild(row);
         });
+
+        if (anyRunning) startRunPolling();
     } catch (e) {
         console.error(e);
     }
@@ -470,17 +498,33 @@ async function startTestRun() {
         }
         closeTestRunEditor();
         if (data.batch) {
-            const s = data.total_summary;
-            toast(`Test plan run complete: ${s.passed}/${s.total} passed across ${s.run_count} run(s)`, 'success');
+            toast(`${data.run_count} test run(s) started`, 'info');
         } else {
-            toast(`Run complete: ${data.summary?.passed || 0}/${data.summary?.total || 0} passed`, 'success');
+            toast(`Test run started — ${data.progress?.total || 0} tests queued`, 'info');
         }
         loadTestRunsPage();
+        startRunPolling();
     } catch (e) {
         statusEl.textContent = String(e);
         statusEl.style.color = '#e74c3c';
         btn.disabled = false;
     }
+}
+
+// ── Run polling ──────────────────────────────────────────
+let _runPollTimer = null;
+
+function startRunPolling() {
+    if (_runPollTimer) return;
+    _runPollTimer = setInterval(async () => {
+        const running = document.querySelectorAll('#test-runs-list tr[data-run-status="running"]');
+        if (running.length === 0) {
+            clearInterval(_runPollTimer);
+            _runPollTimer = null;
+            return;
+        }
+        await loadTestRunsPage();
+    }, 2500);
 }
 
 // ── Test Plans ────────────────────────────────────────────
@@ -561,6 +605,7 @@ function openTestPlanModal(configId) {
     document.getElementById('rc-suite-security').checked   = secChecked;
     document.getElementById('rc-suite-functional-wrap').style.borderColor = funcChecked ? '#3498db' : '#ddd';
     document.getElementById('rc-suite-security-wrap').style.borderColor   = secChecked  ? '#3498db' : '#ddd';
+    document.getElementById('rc-agent-tags').value = cfg ? (cfg.agent_tags || []).join(', ') : '';
     document.getElementById('rc-tags').value = cfg ? (cfg.tags || []).join(', ') : '';
 
     const checksDiv = document.getElementById('rc-agents-checks');
@@ -610,7 +655,10 @@ async function saveTestPlan() {
     const tagsRaw = document.getElementById('rc-tags').value.trim();
     const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
 
-    const payload = { name, agent_ids: agentIds, suite_types: suiteTypes, tags };
+    const agentTagsRaw = document.getElementById('rc-agent-tags').value.trim();
+    const agent_tags = agentTagsRaw ? agentTagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    const payload = { name, agent_ids: agentIds, agent_tags, suite_types: suiteTypes, tags };
     try {
         if (id) {
             await API.put(`/test-plans/${id}`, payload);
@@ -709,16 +757,20 @@ async function renderRunDetail(runId) {
                     <td${latencyWarn}>${r.latency_ms != null ? r.latency_ms + 'ms' : '-'}</td>
                     <td><button class="btn small" onclick="toggleResultDetail('rd-${i}')">Expand</button></td>
                 </tr>
-                <tr id="rd-${i}" style="display:none;background:#fafafa;">
-                    <td colspan="6" style="padding:16px;">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                            <div>
-                                <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;">Expected</div>
-                                <pre style="background:#e8f5e9;padding:12px;border-radius:4px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;">${escHtml(r.expected_response || '')}</pre>
+                <tr id="rd-${i}" style="display:none;background:#f8f9fa;">
+                    <td colspan="6" style="padding:0;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid #e0e0e0;">
+                            <div style="padding:14px;border-right:1px solid #e0e0e0;">
+                                <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Prompt Sent</div>
+                                <pre style="background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:4px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto;margin:0;">${escHtml(r.user_prompt || '')}</pre>
                             </div>
-                            <div>
-                                <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;">Actual</div>
-                                <pre style="background:${r.status==='pass'?'#e8f5e9':r.status==='error'?'#fff3e0':'#fce4ec'};padding:12px;border-radius:4px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;">${escHtml(r.error || r.actual_response || '')}</pre>
+                            <div style="padding:14px;border-right:1px solid #e0e0e0;">
+                                <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Expected</div>
+                                <pre style="background:#e8f5e9;border:1px solid #c8e6c9;padding:10px;border-radius:4px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto;margin:0;">${escHtml(r.expected_response || '')}</pre>
+                            </div>
+                            <div style="padding:14px;">
+                                <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Actual${r.score != null ? ` &nbsp;<span style="font-weight:400;color:#3498db;">${(r.score*100).toFixed(0)}% match</span>` : ''}</div>
+                                <pre style="background:${r.status==='pass'?'#e8f5e9;border:1px solid #c8e6c9':r.status==='error'?'#fff3e0;border:1px solid #ffe0b2':'#fce4ec;border:1px solid #f8bbd0'};padding:10px;border-radius:4px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto;margin:0;">${escHtml(r.error || r.actual_response || '')}</pre>
                             </div>
                         </div>
                     </td>
@@ -769,7 +821,99 @@ function filterTestsByTag(tagName) {
 }
 
 async function loadReportsPage() {
-    // Placeholder
+    const el = document.getElementById('reports-content');
+    el.innerHTML = '<p style="color:#888;padding:20px;">Loading...</p>';
+
+    try {
+        const runs = await API.get('/test-runs?limit=200');
+        if (!runs.length) {
+            el.innerHTML = '<p style="color:#888;padding:20px;">No test runs yet.</p>';
+            return;
+        }
+
+        const completed = runs.filter(r => r.status === 'completed');
+
+        // ── Summary cards ───────────────────────────────────
+        const totalRuns   = completed.length;
+        const totalTests  = completed.reduce((s, r) => s + (r.summary?.total || 0), 0);
+        const totalPassed = completed.reduce((s, r) => s + (r.summary?.passed || 0), 0);
+        const totalFailed = completed.reduce((s, r) => s + (r.summary?.failed || 0), 0);
+        const avgRate     = totalTests ? (totalPassed / totalTests * 100).toFixed(1) : '-';
+        const avgLatency  = completed.reduce((s, r) => s + (r.duration_seconds || 0), 0) / (completed.length || 1);
+
+        // ── Per-agent stats ─────────────────────────────────
+        const agentStats = {};
+        completed.forEach(r => {
+            const k = r.agent_name || r.agent_id;
+            if (!agentStats[k]) agentStats[k] = { runs: 0, passed: 0, failed: 0, errors: 0, total: 0 };
+            const s = r.summary || {};
+            agentStats[k].runs++;
+            agentStats[k].passed  += s.passed  || 0;
+            agentStats[k].failed  += s.failed  || 0;
+            agentStats[k].errors  += s.errors  || 0;
+            agentStats[k].total   += s.total   || 0;
+        });
+
+        const agentRows = Object.entries(agentStats).map(([name, s]) => {
+            const rate = s.total ? (s.passed / s.total * 100).toFixed(1) : '-';
+            const color = parseFloat(rate) >= 75 ? '#27ae60' : parseFloat(rate) >= 50 ? '#e67e22' : '#e74c3c';
+            return `<tr>
+                <td>${escHtml(name)}</td>
+                <td>${s.runs}</td>
+                <td>${s.total}</td>
+                <td style="color:${color};font-weight:600;">${rate}%</td>
+                <td>${s.passed}</td>
+                <td style="color:#e74c3c;">${s.failed}</td>
+                <td style="color:#e67e22;">${s.errors}</td>
+            </tr>`;
+        }).join('');
+
+        // ── Recent trend (last 10 completed runs) ───────────
+        const recent = completed.slice(-10).reverse();
+        const trendRows = recent.map(r => {
+            const rate = r.pass_rate != null ? (r.pass_rate * 100).toFixed(1) : '-';
+            const color = parseFloat(rate) >= 75 ? '#27ae60' : parseFloat(rate) >= 50 ? '#e67e22' : '#e74c3c';
+            const s = r.summary || {};
+            return `<tr>
+                <td style="font-size:12px;">${new Date(r.started_at).toLocaleString()}</td>
+                <td>${escHtml(r.agent_name || r.agent_id)}</td>
+                <td>${r.suite_type}</td>
+                <td>${s.total || 0}</td>
+                <td style="color:${color};font-weight:600;">${rate}%</td>
+                <td>${r.duration_seconds || 0}s</td>
+            </tr>`;
+        }).join('');
+
+        el.innerHTML = `
+            <div class="stats-grid" style="margin-bottom:24px;">
+                <div class="stat-card"><div class="stat-label">Total Runs</div><div class="stat-value">${totalRuns}</div></div>
+                <div class="stat-card"><div class="stat-label">Tests Executed</div><div class="stat-value">${totalTests}</div></div>
+                <div class="stat-card"><div class="stat-label">Overall Pass Rate</div><div class="stat-value">${avgRate}%</div></div>
+                <div class="stat-card"><div class="stat-label">Total Failed</div><div class="stat-value stat-value-red">${totalFailed}</div></div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header"><h3>Agent Performance</h3></div>
+                <div class="card-content" style="padding:0;">
+                    <table>
+                        <thead><tr><th>Agent</th><th>Runs</th><th>Tests</th><th>Pass Rate</th><th>Passed</th><th>Failed</th><th>Errors</th></tr></thead>
+                        <tbody>${agentRows}</tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h3>Recent Runs</h3></div>
+                <div class="card-content" style="padding:0;">
+                    <table>
+                        <thead><tr><th>Time</th><th>Agent</th><th>Suite</th><th>Tests</th><th>Pass Rate</th><th>Duration</th></tr></thead>
+                        <tbody>${trendRows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+    } catch (e) {
+        el.innerHTML = `<p style="color:#e74c3c;padding:20px;">Error: ${e}</p>`;
+    }
 }
 
 // ── Environments ──────────────────────────────────────────
@@ -1111,6 +1255,7 @@ function editAgent(agentId) {
     document.getElementById('agent-auth-type').value = agent.auth_type || 'none';
     document.getElementById('agent-auth-header').value = agent.auth_header || '';
     document.getElementById('agent-auth-value').value = agent.auth_value || '';
+    document.getElementById('agent-tags').value = (agent.tags || []).join(', ');
     document.getElementById('agent-body-template').value = agent.body_template || '';
     document.getElementById('agent-response-path').value = agent.response_path || '';
     toggleAuthFields();
@@ -1137,6 +1282,7 @@ async function saveAgent() {
         auth_type: document.getElementById('agent-auth-type').value,
         auth_header: document.getElementById('agent-auth-header').value,
         auth_value: document.getElementById('agent-auth-value').value,
+        tags: document.getElementById('agent-tags').value.split(',').map(t => t.trim()).filter(Boolean),
         body_template: document.getElementById('agent-body-template').value.trim(),
         response_path: document.getElementById('agent-response-path').value.trim(),
     };
@@ -1156,6 +1302,7 @@ async function saveAgent() {
         document.getElementById('agent-auth-type').value = 'none';
         document.getElementById('agent-auth-header').value = '';
         document.getElementById('agent-auth-value').value = '';
+        document.getElementById('agent-tags').value = '';
         document.getElementById('agent-body-template').value = '';
         document.getElementById('agent-response-path').value = '';
         toggleAuthFields();
@@ -1169,22 +1316,22 @@ async function saveAgent() {
 
 function onScopeChange() {
     const scope = document.getElementById('te-scope').value;
-    document.getElementById('te-agent-wrap').style.display = scope === 'agent' ? '' : 'none';
+    const wrap = document.getElementById('te-agent-wrap');
+    wrap.style.display = '';   // always visible — owner when scope=agent, probe target otherwise
+    const agentSel = document.getElementById('te-agent');
+    agentSel.options[0].text = scope === 'agent' ? 'Select Agent...' : 'Try It against...';
 }
 
 function openTestEditor(prefillTest) {
     const inGlobal = window._activeProject === '_global';
 
-    // Populate agent pickers
-    const agentSel  = document.getElementById('te-agent');
-    const probeSel  = document.getElementById('te-probe-agent');
-    [agentSel, probeSel].forEach((sel, i) => {
-        sel.innerHTML = `<option value="">${i ? 'Try against agent...' : 'Select Agent...'}</option>`;
-        (window._agentsCache || []).filter(a => a.agent_id !== '_shared').forEach(a => {
-            const o = document.createElement('option');
-            o.value = a.agent_id; o.textContent = a.name;
-            sel.appendChild(o);
-        });
+    // Populate agent picker
+    const agentSel = document.getElementById('te-agent');
+    agentSel.innerHTML = '<option value="">Select Agent...</option>';
+    (window._agentsCache || []).filter(a => a.agent_id !== '_shared').forEach(a => {
+        const o = document.createElement('option');
+        o.value = a.agent_id; o.textContent = a.name;
+        agentSel.appendChild(o);
     });
 
     // Show/hide Global scope option based on active project
@@ -1313,7 +1460,7 @@ function renderMarkdown(text) {
 }
 
 async function runProbe() {
-    const agentId = document.getElementById('te-probe-agent').value || document.getElementById('te-agent').value;
+    const agentId = document.getElementById('te-agent').value;
     const rawPrompt = document.getElementById('te-prompt').value.trim();
     const prompt = applyVars(rawPrompt);
     if (!agentId) { toast('Select an agent to probe against', 'warn'); return; }
