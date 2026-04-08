@@ -52,13 +52,18 @@
       "static/**/*",
       "node_modules/**/*",
       "!node_modules/@xenova/transformers/dist/ort-wasm*",
-      "!**/__pycache__/**",
-      "!**/*.py",
-      "!server.py",
+      "!node_modules/sharp/**",
+      "!node_modules/**/{test,tests,__tests__,spec,specs,example,examples,benchmark,benchmarks}/**",
+      "!node_modules/**/*.{map,md,ts,flow}",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/CHANGELOG*",
       "!workspaces/**",
       "!docs/**",
+      "!build/**",
+      "!dist/**",
       "!.claude/**"
     ],
+    "compression": "maximum",
     "extraResources": [
       {
         "from": "workspaces",
