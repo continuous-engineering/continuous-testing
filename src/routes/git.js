@@ -7,8 +7,13 @@
  * workspaces/
  *   e360/        ← git repo (origin: github.com/org/e360-tests)
  *   acme/        ← git repo (origin: github.com/org/acme-tests)
- *   _global/     ← local only (optionally its own repo)
+ *   _global/     ← read-only, managed by continuous.engineering (pull/sync only)
+ *
+ * _global is always shown in the projects table and can be synced (pull/rebase),
+ * but commit and push are blocked — clients layer their own local tests on top.
  */
+
+const GLOBAL_REMOTE = 'https://github.com/continuous-engineering/_global-testcases.git';
 
 const router = require('express').Router();
 const path = require('path');
@@ -77,6 +82,9 @@ router.get('/info', async (req, res) => {
 
 // ── POST /api/git/commit ──────────────────────────────────
 router.post('/commit', async (req, res) => {
+  if (getProject(req) === '_global')
+    return res.json({ success: false, output: '_global is managed by continuous.engineering — sync only, no commits.' });
+
   const { message } = req.body;
   if (!message?.trim())
     return res.status(400).json({ success: false, output: 'No commit message' });
@@ -103,10 +111,34 @@ router.post('/commit', async (req, res) => {
 router.post('/sync', async (req, res) => {
   try {
     const ws = new WS(getProject(req));
+
+    // _global: auto-bootstrap if not yet a git repo, then pull
+    if (ws.project === '_global' && !isGitRepo(ws.root)) {
+      const g = simpleGit(ws.root);
+      await g.init();
+      await g.addRemote('origin', GLOBAL_REMOTE);
+      await g.fetch(['origin']);
+      try {
+        await g.raw(['checkout', '-b', 'main', 'origin/main']);
+      } catch {
+        await g.raw(['reset', '--hard', 'origin/main']);
+      }
+      return res.json({ success: true, output: '_global initialized and synced from continuous.engineering', conflicts: [], dirty: false });
+    }
+
     if (!isGitRepo(ws.root))
       return res.json({ success: false, output: 'Not a git repo.', conflicts: [], dirty: false });
 
     const g = projectGit(ws);
+
+    // _global: ensure remote is set (may have been bundled without .git)
+    if (ws.project === '_global') {
+      const remotes = await g.getRemotes();
+      if (!remotes.find(r => r.name === 'origin')) {
+        await g.addRemote('origin', GLOBAL_REMOTE);
+      }
+    }
+
     await g.fetch(['--all']);
     const branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'main';
     const tracking = `origin/${branch}`;
@@ -135,6 +167,9 @@ router.post('/sync', async (req, res) => {
 
 // ── POST /api/git/push ────────────────────────────────────
 router.post('/push', async (req, res) => {
+  if (getProject(req) === '_global')
+    return res.json({ success: false, output: '_global is managed by continuous.engineering — sync only, no push.' });
+
   try {
     const ws = new WS(getProject(req));
     if (!isGitRepo(ws.root))
@@ -151,6 +186,9 @@ router.post('/push', async (req, res) => {
 
 // ── POST /api/git/smart-commit ────────────────────────────
 router.post('/smart-commit', async (req, res) => {
+  if (getProject(req) === '_global')
+    return res.json({ success: false, output: '_global is managed by continuous.engineering — sync only, no commits.' });
+
   const message = (req.body.message || 'update').trim();
   try {
     const ws = new WS(getProject(req));
@@ -272,11 +310,27 @@ router.get('/workspace-repos', async (req, res) => {
   const workspacesDir = getWorkspacesDirectory();
   if (!fs.existsSync(workspacesDir)) return res.json([]);
 
-  const entries = [];
+  // _global always appears first — read-only, managed by continuous.engineering
+  const globalDir = path.join(workspacesDir, '_global');
+  const globalEntry = await (async () => {
+    if (!fs.existsSync(globalDir)) return { name: '_global', isRepo: false, remote: GLOBAL_REMOTE, branch: null, readOnly: true };
+    const isRepo = isGitRepo(globalDir);
+    let remote = GLOBAL_REMOTE;
+    let branch = null;
+    if (isRepo) {
+      try {
+        const g = simpleGit(globalDir);
+        branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || null;
+      } catch {}
+    }
+    return { name: '_global', isRepo, remote, branch, readOnly: true };
+  })();
+
+  const entries = [globalEntry];
   for (const name of fs.readdirSync(workspacesDir).sort()) {
+    if (name === '_global') continue;
     const dir = path.join(workspacesDir, name);
     try { if (!fs.statSync(dir).isDirectory()) continue; } catch { continue; }
-    if (name === '_global') continue;
 
     const isRepo = isGitRepo(dir);
     let remote = null;
@@ -290,7 +344,7 @@ router.get('/workspace-repos', async (req, res) => {
         branch = (await g.revparse(['--abbrev-ref', 'HEAD'])).trim() || null;
       } catch {}
     }
-    entries.push({ name, isRepo, remote, branch });
+    entries.push({ name, isRepo, remote, branch, readOnly: false });
   }
   res.json(entries);
 });

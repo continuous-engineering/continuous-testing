@@ -1819,7 +1819,11 @@ function renderReposTable() {
             : '<span style="color:#ccc;">—</span>';
 
         let actions;
-        if (!repo.isRepo) {
+        if (repo.readOnly) {
+            // _global — sync only, no commit/push
+            actions = `<button class="btn small" onclick="repoGitOp('sync','${repo.name}','${sid}')"
+                    title="Pull latest from continuous.engineering" style="font-size:11px;padding:4px 9px;">&#8595; Sync</button>`;
+        } else if (!repo.isRepo) {
             actions = `<button class="btn small" onclick="repoInit('${repo.name}')" style="font-size:11px;padding:4px 9px;">Init Git</button>`;
         } else {
             actions = `
@@ -1833,10 +1837,14 @@ function renderReposTable() {
                     title="${repo.remote ? 'Change remote' : 'Add remote'}" style="font-size:11px;padding:4px 9px;background:#95a5a6;">&#9881;</button>`;
         }
 
-        const rowStyle = 'border-bottom:1px solid #f0f0f5;';
+        const rowStyle = `border-bottom:1px solid #f0f0f5;${repo.readOnly ? 'background:#fafbfe;' : ''}`;
+        const nameCell = repo.readOnly
+            ? `${repo.name} <span title="Managed by continuous.engineering — sync only"
+                style="font-size:10px;background:#e8eaf6;color:#5c6bc0;border-radius:3px;padding:1px 5px;font-weight:500;margin-left:4px;">&#128274; managed</span>`
+            : repo.name;
         return `
         <tr id="row-${sid}" style="${rowStyle}">
-            <td style="padding:9px 12px;font-weight:600;color:#2c3e50;">${repo.name}</td>
+            <td style="padding:9px 12px;font-weight:600;color:#2c3e50;">${nameCell}</td>
             <td style="padding:9px 12px;">${branchCell}</td>
             <td style="padding:9px 12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${remoteCell}</td>
             <td style="padding:9px 12px;text-align:center;">${statusCell}</td>
