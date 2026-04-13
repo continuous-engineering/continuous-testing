@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+/* Shared with web app — continuous.testing brand tokens */
+:root {
+  --ct-accent:   #10b981;
+  --ct-accent-d: #059669;
+  --ct-bg:       #09090f;
+  --ct-surface:  #111118;
+  --ct-border:   #2a2a3a;
+  --ct-text-1:   #f0f0f6;
+  --ct-text-2:   #8b8ba8;
+  --ct-text-3:   #52526a;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-sans);
+  background: var(--ct-bg);
+  color: var(--ct-text-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+body { margin: 0; }
