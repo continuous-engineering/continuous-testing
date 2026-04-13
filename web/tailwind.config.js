@@ -1,6 +1,5 @@
-import type { Config } from 'tailwindcss'
-
-export default {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -13,14 +12,12 @@ export default {
         mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
       },
       colors: {
-        // CT semantic tokens — always use these, never raw Tailwind colors for status
         pass:    'var(--ct-pass)',
         fail:    'var(--ct-fail)',
         flaky:   'var(--ct-flaky)',
         running: 'var(--ct-running)',
         skipped: 'var(--ct-skipped)',
         blocked: 'var(--ct-blocked)',
-        // CT surfaces
         'ct-bg':      'var(--ct-bg)',
         'ct-surface': 'var(--ct-surface)',
         'ct-raised':  'var(--ct-surface-raised)',
@@ -41,8 +38,8 @@ export default {
         lg: '8px',
       },
       height: {
-        row: 'var(--ct-row-h)', // 36px — dense table rows
+        row: 'var(--ct-row-h)',
       },
     },
   },
-} satisfies Config
+}

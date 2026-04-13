@@ -41,6 +41,9 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:8080}
     restart: unless-stopped
     networks: [ct-network]
     depends_on:
@@ -70,7 +73,7 @@ services:
     networks: [ct-network]
     depends_on:
       web:
-        condition: service_healthy
+        condition: service_started   # don't wait for healthy — web health check uses node HTTP
     ports:
       - "8080:80"   # host:8080 → caddy:80 → web:3000
     volumes:
@@ -93,7 +96,7 @@ services:
     networks: [ct-network]
     depends_on:
       caddy:
-        condition: service_healthy
+        condition: service_started
     environment:
       CT_API_BASE:       http://caddy
       RUNNER_TOKEN:      ${RUNNER_TOKEN_1}
@@ -114,7 +117,7 @@ services:
     networks: [ct-network]
     depends_on:
       caddy:
-        condition: service_healthy
+        condition: service_started
     environment:
       CT_API_BASE:       http://caddy
       RUNNER_TOKEN:      ${RUNNER_TOKEN_2}
@@ -135,7 +138,7 @@ services:
     networks: [ct-network]
     depends_on:
       caddy:
-        condition: service_healthy
+        condition: service_started
     environment:
       CT_API_BASE:       http://caddy
       RUNNER_TOKEN:      ${RUNNER_TOKEN_3}

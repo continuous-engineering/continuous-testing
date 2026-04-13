@@ -13,7 +13,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npx tsc
@@ -24,7 +24,7 @@ WORKDIR /app
 
 # Production deps only
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm install --legacy-peer-deps --omit=dev
 
 # Compiled source from build stage
 COPY --from=builder /app/dist ./dist

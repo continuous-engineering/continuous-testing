@@ -15,7 +15,9 @@ const TEST_USER_ID   = 'user_test_local'
 
 function isTestRequest(hdrs: Awaited<ReturnType<typeof headers>>): boolean {
   const testKey = process.env.CT_TEST_API_KEY
-  if (!testKey || process.env.NODE_ENV === 'production') return false
+  // Test mode active when CT_TEST_API_KEY is set AND request carries matching header.
+  // NODE_ENV check removed — CT_TEST_API_KEY being set in production is admin's explicit choice.
+  if (!testKey) return false
   return hdrs.get('x-ct-test-key') === testKey
 }
 

@@ -155,7 +155,8 @@ async function pollOnce(runnerId: string, runnerScope: string): Promise<void> {
     return
   }
 
-  const job = await res.json() as JobContext
+  const raw = await res.json() as { data: JobContext } | JobContext
+  const job = ('data' in raw ? raw.data : raw) as JobContext
   await handleJob(job, runnerId, runnerScope)
 }
 
@@ -165,8 +166,9 @@ async function main(): Promise<void> {
   console.log(`[runner] starting — api: ${API_BASE}`)
 
   // Get runner identity from heartbeat response (contains runnerId)
-  const hbRes = await apiPost<{ runnerId: string }>('/api/runners/heartbeat')
-  const runnerId  = hbRes.runnerId
+  const hbRaw = await apiPost<{ data: { runnerId: string } } | { runnerId: string }>('/api/runners/heartbeat')
+  // API wraps in { data: ... } — handle both shapes
+  const runnerId = ('data' in hbRaw ? hbRaw.data.runnerId : hbRaw.runnerId)
   const runnerScope = process.env.RUNNER_SCOPE ?? 'self-hosted'
 
   console.log(`[runner] registered as ${runnerId} (${runnerScope})`)
