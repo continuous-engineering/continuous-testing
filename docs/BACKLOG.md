@@ -127,10 +127,10 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 044 | ⬜ | Main dashboard — run health 24h, needs-attention panel, recent runs table, runner status | B09 | L |
-| 045 | ⬜ | Flaky detection — SQL analytics, 30d sparkline per step, step badge, dashboard widget, CI gate | B09 | M |
-| 046 | ⬜ | OpenAPI coverage map — spec vs test suite heatmap, coverage %, click gap → draft step scaffold | B09 | M |
-| 047 | ⬜ | Snapshot/baseline testing — S3 artifact, diff engine, AI-described UI changes, approval flow, auto-issue | B09 | L |
+| 044 | 🔄 | Main dashboard — run health 24h, needs-attention panel, recent runs table, runner status | B09 | L |
+| 045 | 🔄 | Flaky detection — SQL analytics, 30d sparkline per step, step badge, dashboard widget, CI gate | B09 | M |
+| 046 | 🔄 | OpenAPI coverage map — spec vs test suite heatmap, coverage %, click gap → draft step scaffold | B09 | M |
+| 047 | 🔄 | Snapshot/baseline testing — S3 artifact, diff engine, AI-described UI changes, approval flow, auto-issue | B09 | L |
 
 ---
 
