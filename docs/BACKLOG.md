@@ -94,12 +94,12 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 032 | 🔄 | Pipeline canvas — linear view default, step cards, add/remove/reorder, advanced DAG toggle | B06 | L |
-| 033 | 🔄 | API step designer — method/URL/auth/body/headers, JSONPath assertion builder, response preview | B06 | L |
-| 034 | 🔄 | UI step designer — action list, selector display with health indicator (ARIA/testid/css priority) | B06 | L |
-| 035 | 🔄 | AI step designer — prompt editor, expected response, threshold slider, live score preview | B06 | M |
-| 036 | 🔄 | Context binding UI — design-time output declaration, downstream binding dropdowns (no freetext) | B06 | M |
-| 037 | 🔄 | Pipeline run controls — trigger, stop, live step status via SSE, step timeline view | B06 | M |
+| 032 | ✅ | Pipeline canvas — linear view default, step cards, add/remove/reorder, advanced DAG toggle | B06 | L |
+| 033 | ✅ | API step designer — method/URL/auth/body/headers, JSONPath assertion builder, response preview | B06 | L |
+| 034 | ✅ | UI step designer — action list, selector display with health indicator (ARIA/testid/css priority) | B06 | L |
+| 035 | ✅ | AI step designer — prompt editor, expected response, threshold slider, live score preview | B06 | M |
+| 036 | ✅ | Context binding UI — design-time output declaration, downstream binding dropdowns (no freetext) | B06 | M |
+| 037 | ✅ | Pipeline run controls — trigger, stop, live step status via SSE, step timeline view | B06 | M |
 
 ---
 
