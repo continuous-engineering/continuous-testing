@@ -42,14 +42,14 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 008 | ⬜ | Migration 001 — tenants, projects, memberships, soft-delete pattern | B02 | S |
-| 009 | ⬜ | Migration 002 — pipelines + steps (DAG, `prerequisites[]`, `outputs[]`, `config JSONB` per type) | B02 | M |
-| 010 | ⬜ | Migration 003 — environments + secrets (`encrypted_value`, `key_version`) | B02 | S |
-| 011 | ⬜ | Migration 004 — runs, run_results, ctx_snapshots (one row per step per run) | B02 | M |
-| 012 | ⬜ | Migration 005 — issues, issue_refs, sync_log (10 core fields, external_refs JSONB) | B02 | M |
-| 013 | ⬜ | Migration 006 — runners, runner_jobs (tags TEXT[], scope hosted/self-hosted, heartbeat, `runner_minutes` NUMERIC, `usage_ledger` billing table) | B02 | M |
-| 014 | ⬜ | Migration 007 — datasets, dataset_rows (parameterized test data, schema_json) | B02 | S |
-| 015 | ⬜ | Migration 008 — openapi_specs, coverage_snapshots (spec JSON, coverage % per endpoint) | B02 | S |
+| 008 | ✅ | Migration 001 — tenants, projects, memberships, soft-delete pattern | B02 | S |
+| 009 | ✅ | Migration 002 — pipelines + steps (DAG, `prerequisites[]`, `outputs[]`, `config JSONB` per type) | B02 | M |
+| 010 | ✅ | Migration 003 — environments + secrets (`encrypted_value`, `key_version`) | B02 | S |
+| 011 | ✅ | Migration 004 — runs, run_results, ctx_snapshots (one row per step per run) | B02 | M |
+| 012 | ✅ | Migration 005 — issues, issue_refs, sync_log (10 core fields, external_refs JSONB) | B02 | M |
+| 013 | ✅ | Migration 006 — runners, runner_jobs (tags TEXT[], scope hosted/self-hosted, heartbeat, `runner_minutes` NUMERIC, `usage_ledger` billing table) | B02 | M |
+| 014 | ✅ | Migration 007 — datasets, dataset_rows (parameterized test data, schema_json) | B02 | S |
+| 015 | ✅ | Migration 008 — openapi_specs, coverage_snapshots (spec JSON, coverage % per endpoint) | B02 | S |
 
 ---
 
