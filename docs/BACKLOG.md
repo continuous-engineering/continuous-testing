@@ -57,12 +57,12 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 016 | 🔄 | Projects API — CRUD, tenant-scoped, membership enforcement | B03 | S |
-| 017 | 🔄 | Pipelines API — CRUD, DAG cycle validation on save, `runs_on` tag requirement (pipeline-level only, no per-step override) | B03 | M |
-| 018 | 🔄 | Steps API — CRUD, type-specific config validation (api/ui/ai schemas), `prerequisites[]` + `outputs[]` binding declarations | B03 | M |
-| 019 | 🔄 | Environments API — CRUD, active environment per project | B03 | S |
-| 020 | 🔄 | Secrets vault API — create/list/delete, AES-256-GCM encrypt on write, value never returned | B03 | M |
-| 021 | 🔄 | Datasets API — CRUD, CSV multipart upload → rows, faker schema → generate rows | B03 | M |
+| 016 | ✅ | Projects API — CRUD, tenant-scoped, membership enforcement | B03 | S |
+| 017 | ✅ | Pipelines API — CRUD, DAG cycle validation on save, `runs_on` tag requirement (pipeline-level only, no per-step override) | B03 | M |
+| 018 | ✅ | Steps API — CRUD, type-specific config validation (api/ui/ai schemas), `prerequisites[]` + `outputs[]` binding declarations | B03 | M |
+| 019 | ✅ | Environments API — CRUD, active environment per project | B03 | S |
+| 020 | ✅ | Secrets vault API — create/list/delete, AES-256-GCM encrypt on write, value never returned | B03 | M |
+| 021 | ✅ | Datasets API — CRUD, CSV multipart upload → rows, faker schema → generate rows | B03 | M |
 
 ---
 
