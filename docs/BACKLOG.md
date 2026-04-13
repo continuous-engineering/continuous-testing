@@ -178,13 +178,13 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 067 | 🔄 | testing.continuous.engineering scaffold — Next.js, CT design tokens, Emerald brand, separate app | B13 | M |
-| 068 | 🔄 | Landing page — hero, value props, animated pipeline demo, social proof, CTA | B13 | L |
-| 069 | 🔄 | Features page — step model, AI test generation, runner model, self-healing selectors | B13 | M |
-| 070 | 🔄 | Pricing page — 3 tiers (Starter/Team/Enterprise), comparison vs TestRail/Zephyr, FAQ | B13 | M |
-| 071 | 🔄 | Changelog + blog — MDX, continuous.engineering editorial style, launch announcement | B13 | S |
-| 072 | 🔄 | Docs site — getting started, runner setup guide, CI/CD integration, API reference | B13 | L |
-| 073 | 🔄 | App ↔ website integration — SSO entry from marketing, signup CTA → onboarding → dashboard | B13 | M |
+| 067 | ✅ | testing.continuous.engineering scaffold — Next.js, CT design tokens, Emerald brand, separate app | B13 | M |
+| 068 | ✅ | Landing page — hero, value props, animated pipeline demo, social proof, CTA | B13 | L |
+| 069 | ✅ | Features page — step model, AI test generation, runner model, self-healing selectors | B13 | M |
+| 070 | ✅ | Pricing page — 3 tiers (Starter/Team/Enterprise), comparison vs TestRail/Zephyr, FAQ | B13 | M |
+| 071 | ✅ | Changelog + blog — MDX, continuous.engineering editorial style, launch announcement | B13 | S |
+| 072 | ✅ | Docs site — getting started, runner setup guide, CI/CD integration, API reference | B13 | L |
+| 073 | ✅ | App ↔ website integration — SSO entry from marketing, signup CTA → onboarding → dashboard | B13 | M |
 
 ---
 
