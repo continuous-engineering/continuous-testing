@@ -28,13 +28,13 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 001 | 🔄 | Next.js App Router scaffold — TypeScript strict, Tailwind, shadcn/ui, ESLint | B01 | M |
-| 002 | 🔄 | Design token system — CSS custom props, Emerald palette, dark/light/system theme switching | B01 | M |
-| 003 | 🔄 | Core UI components — DenseTable (36px rows), StatusBadge, AppShell, Sidebar, TopNav, ThemeToggle | B01 | L |
-| 004 | 🔄 | PostgreSQL pool + SQL query abstraction — `query/one/tx`, `.sql` file loader, no ORM | B01 | S |
-| 005 | 🔄 | node-pg-migrate setup + `migrate:up / migrate:down` npm scripts | B01 | XS |
-| 006 | 🔄 | Auth — Clerk multi-tenant, org/user model, middleware, tenant context injected per request | B01 | M |
-| 007 | 🔄 | Multi-tenant RLS — row-level security policies, `tenant_id` on every table | B01 | M |
+| 001 | ✅ | Next.js App Router scaffold — TypeScript strict, Tailwind, shadcn/ui, ESLint | B01 | M |
+| 002 | ✅ | Design token system — CSS custom props, Emerald palette, dark/light/system theme switching | B01 | M |
+| 003 | ✅ | Core UI components — DenseTable (36px rows), StatusBadge, AppShell, Sidebar, TopNav, ThemeToggle | B01 | L |
+| 004 | ✅ | PostgreSQL pool + SQL query abstraction — `query/one/tx`, `.sql` file loader, no ORM | B01 | S |
+| 005 | ✅ | node-pg-migrate setup + `migrate:up / migrate:down` npm scripts | B01 | XS |
+| 006 | ✅ | Auth — Clerk multi-tenant, org/user model, middleware, tenant context injected per request | B01 | M |
+| 007 | ✅ | Multi-tenant RLS — row-level security policies, `tenant_id` on every table | B01 | M |
 
 ---
 
