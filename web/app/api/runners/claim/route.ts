@@ -7,7 +7,7 @@
  * ADR-001: One DAG = one runner. Tag dispatch: required_tags <@ runner.tags
  */
 import { createHash } from 'crypto'
-import { one, query } from '@/lib/db/query'
+import { raw, query } from '@/lib/db/query'
 import pool from '@/lib/db/client'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -23,9 +23,12 @@ export async function POST(req: Request) {
   if (!token) return err('Missing X-Runner-Token', 401)
 
   const tokenHash = createHash('sha256').update(token).digest('hex')
-  const runner = await one<{ id: string; tenant_id: string; tags: string[] }>(
-    'runners/get-by-token-hash', [tokenHash],
+  // raw() bypasses RLS — correct for cross-tenant token lookup
+  const rows = await raw<{ id: string; tenant_id: string; tags: string[] }>(
+    `SELECT id, tenant_id, tags FROM runners WHERE token_hash = $1 AND revoked_at IS NULL`,
+    [tokenHash],
   )
+  const runner = rows[0] ?? null
   if (!runner) return err('Invalid runner token', 401)
 
   // Claim next matching job (FOR UPDATE SKIP LOCKED in SQL)

@@ -1,71 +1,153 @@
 version: "3.9"
 
-# continuous.testing — local development stack
+# continuous.testing — Full local stack
 #
-# Services:
-#   postgres — database (required by web app + migrations)
-#   web      — Next.js SaaS app (API + UI)
-#   runner   — standalone test executor (separate container, ADR-001)
+# Network topology:
+#   External: localhost:8080 → caddy → web:3000
+#   Internal (ct-network):
+#     postgres ← web ← caddy ← [runner-1, runner-2, runner-3]
 #
-# Usage:
-#   docker compose up postgres        # just the DB (run web via npm run dev)
-#   docker compose up                 # full stack
-#   docker compose up runner          # runner only (point at hosted web)
+# Runners call http://caddy for all API communication.
+# Only caddy port 8080 is exposed to the host.
+# ADR-001: 3 runner containers — concurrent, independent, stateless.
+
+networks:
+  ct-network:
+    name: ct-network
+    driver: bridge
 
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    networks: [ct-network]
     environment:
-      POSTGRES_DB:       continuous_testing
-      POSTGRES_USER:     ct
-      POSTGRES_PASSWORD: ct_dev_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB:       ${POSTGRES_DB:-continuous_testing}
+      POSTGRES_USER:     ${POSTGRES_USER:-ct}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ct -d continuous_testing"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ct} -d ${POSTGRES_DB:-continuous_testing}"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      start_period: 10s
 
+  # ── Web app (Next.js) ───────────────────────────────────────────────────────
   web:
     build:
       context: ./web
       dockerfile: Dockerfile
     restart: unless-stopped
+    networks: [ct-network]
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL:                    postgresql://ct:ct_dev_password@postgres:5432/continuous_testing
+      DATABASE_URL:                    ${DATABASE_URL}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       CLERK_SECRET_KEY:                ${CLERK_SECRET_KEY}
       ANTHROPIC_API_KEY:               ${ANTHROPIC_API_KEY}
       SECRETS_MASTER_KEY:              ${SECRETS_MASTER_KEY}
+      NEXT_PUBLIC_APP_URL:             ${NEXT_PUBLIC_APP_URL:-http://localhost:8080}
+      CT_TEST_API_KEY:                 ${CT_TEST_API_KEY:-ct-test-api-key-local-dev-only}
       NODE_ENV:                        production
-    ports:
-      - "3000:3000"
+    # NOT exposed — only reachable via caddy inside ct-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
-  # ── Standalone runner — INDEPENDENT CONTAINER (ADR-001) ─────────────────────
-  # This is separate from the web app by design.
-  # One DAG = one runner process = one in-memory ctx map.
-  # Multiple runner containers can run concurrently (horizontal scale).
-  runner:
+  # ── Caddy reverse proxy (ONLY exposed service) ──────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    networks: [ct-network]
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "8080:80"   # host:8080 → caddy:80 → web:3000
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Runner 1 ─────────────────────────────────────────────────────────────────
+  # ADR-001: stateless, polls queue, one DAG per container per job
+  runner-1:
     build:
       context: ./runner
       dockerfile: Dockerfile
     restart: unless-stopped
+    networks: [ct-network]
     depends_on:
-      web:
-        condition: service_started
+      caddy:
+        condition: service_healthy
     environment:
-      CT_API_BASE:       http://web:3000
-      RUNNER_TOKEN:      ${RUNNER_TOKEN}
-      RUNNER_SCOPE:      self-hosted
+      CT_API_BASE:       http://caddy
+      RUNNER_TOKEN:      ${RUNNER_TOKEN_1}
+      RUNNER_SCOPE:      hosted
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    # No ports exposed — runner is outbound only (polls CT API)
+      POLL_INTERVAL_MS:  3000
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ── Runner 2 ─────────────────────────────────────────────────────────────────
+  runner-2:
+    build:
+      context: ./runner
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [ct-network]
+    depends_on:
+      caddy:
+        condition: service_healthy
+    environment:
+      CT_API_BASE:       http://caddy
+      RUNNER_TOKEN:      ${RUNNER_TOKEN_2}
+      RUNNER_SCOPE:      hosted
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      POLL_INTERVAL_MS:  3000
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ── Runner 3 ─────────────────────────────────────────────────────────────────
+  runner-3:
+    build:
+      context: ./runner
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [ct-network]
+    depends_on:
+      caddy:
+        condition: service_healthy
+    environment:
+      CT_API_BASE:       http://caddy
+      RUNNER_TOKEN:      ${RUNNER_TOKEN_3}
+      RUNNER_SCOPE:      hosted
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      POLL_INTERVAL_MS:  3000
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

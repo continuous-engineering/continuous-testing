@@ -1,0 +1,24 @@
+# continuous.testing — Local Caddy reverse proxy
+# Exposes port 8080 → web:3000 (internal Docker network)
+# All services (runners, tests) call the API via http://caddy inside the network
+
+{
+    admin off
+    auto_https off
+}
+
+:80 {
+    # Reverse proxy to web app
+    reverse_proxy web:3000 {
+        health_uri /api/dashboard
+        health_interval 10s
+        health_timeout 5s
+    }
+
+    # Access log
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
