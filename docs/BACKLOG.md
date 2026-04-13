@@ -70,13 +70,13 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 022 | ⬜ | BullMQ queue setup — job types (run_dag, sync_issues, send_notification), retry, dead-letter | B04 | M |
-| 023 | ⬜ | Runner registration + auth — token issuance, `tags TEXT[]`, `scope: hosted/self-hosted`, heartbeat, revoke. Platform hosted runners pre-registered. Customer runners registered by authenticated tenant user. | B04 | M |
-| 024 | ⬜ | Job claim + context injection — tag-based dispatch (`required_tags <@ runner.tags`), `FOR UPDATE SKIP LOCKED`, decrypt secrets in memory only, serialize full DAG. `runner_minutes` written to `usage_ledger` on completion. | B04 | M |
-| 025 | ⬜ | DAG executor — Kahn's topological sort, Promise.all per wave, ctx merging, SKIPPED on prerequisite failure. One DAG = one runner = one process = one ctx map. No cross-runner context. | B04 | L |
-| 026 | ⬜ | API step driver — all HTTP methods, status/header/body assertions, operators, JSONPath, output binding | B04 | L |
-| 027 | ⬜ | AI step driver — Claude API proxied through backend, semantic score vs threshold | B04 | M |
-| 028 | ⬜ | SSE run streaming — EventSource per run, step result events, completion/error events | B04 | M |
+| 022 | 🔄 | BullMQ queue setup — job types (run_dag, sync_issues, send_notification), retry, dead-letter | B04 | M |
+| 023 | 🔄 | Runner registration + auth — token issuance, `tags TEXT[]`, `scope: hosted/self-hosted`, heartbeat, revoke. Platform hosted runners pre-registered. Customer runners registered by authenticated tenant user. | B04 | M |
+| 024 | 🔄 | Job claim + context injection — tag-based dispatch (`required_tags <@ runner.tags`), `FOR UPDATE SKIP LOCKED`, decrypt secrets in memory only, serialize full DAG. `runner_minutes` written to `usage_ledger` on completion. | B04 | M |
+| 025 | 🔄 | DAG executor — Kahn's topological sort, Promise.all per wave, ctx merging, SKIPPED on prerequisite failure. One DAG = one runner = one process = one ctx map. No cross-runner context. | B04 | L |
+| 026 | 🔄 | API step driver — all HTTP methods, status/header/body assertions, operators, JSONPath, output binding | B04 | L |
+| 027 | 🔄 | AI step driver — Claude API proxied through backend, semantic score vs threshold | B04 | M |
+| 028 | 🔄 | SSE run streaming — EventSource per run, step result events, completion/error events | B04 | M |
 
 ---
 
