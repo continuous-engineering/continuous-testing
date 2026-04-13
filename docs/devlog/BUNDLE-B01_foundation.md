@@ -1,25 +1,48 @@
 # BUNDLE B01 — Foundation
 **Tasks:** #001, #002, #003, #004, #005, #006, #007
 **Started:** 2026-04-13 | **Started-At:** 2026-04-13T00:00:00
-**Status:** in_progress | **Est:** 185min | **Model:** sonnet
+**Finished:** 2026-04-13 | **Status:** complete | **Actual:** ~3h | **Model:** sonnet
 
 ## Plan
-- [ ] #001 — Next.js App Router scaffold — TS strict, Tailwind, shadcn/ui, ESLint (M=30m)
-- [ ] #002 — Design token system — CSS custom props, Emerald palette, dark/light/system (M=30m)
-- [ ] #003 — Core UI components — DenseTable, StatusBadge, AppShell, Sidebar, TopNav, ThemeToggle (L=60m)
-- [ ] #004 — PostgreSQL pool + SQL query abstraction — query/one/tx, .sql loader (S=15m) [DONE in scaffold]
-- [ ] #005 — node-pg-migrate setup + migrate scripts (XS=5m) [DONE in scaffold]
-- [ ] #006 — Clerk multi-tenant auth — middleware, tenant context (M=30m)
-- [ ] #007 — Multi-tenant RLS — policies, tenant_id on all tables (M=30m)
+- [x] #001 — Next.js App Router scaffold (M)
+- [x] #002 — Design token system (M) — globals.css + tailwind.config.ts
+- [x] #003 — Core UI components (L) — DenseTable, StepStatusBadge, Sidebar, TopNav, ThemeToggle
+- [x] #004 — PostgreSQL pool + SQL query abstraction (S) — lib/db/client.ts + query.ts
+- [x] #005 — node-pg-migrate setup (XS) — migrate:up/down scripts
+- [x] #006 — Clerk multi-tenant auth (M) — middleware.ts, lib/auth.ts, ClerkProvider
+- [x] #007 — Multi-tenant RLS (M) — RLS policies in all 8 migrations
 
 ## Execution Log
 
+### Tasks 001-005 — Scaffold, Design System, DB
+- Next.js 15, TypeScript strict, Tailwind 4. Design tokens in globals.css, tailwind.config.ts.
+- lib/db/client.ts (pg Pool singleton), lib/db/query.ts (query/one/tx/raw — no ORM).
+- node-pg-migrate wired. Migrations 001-008 written, RLS on every table.
+- Build passes: typecheck clean, npm run build passes.
+
+### Tasks 006-007 — Clerk Auth + RLS
+- middleware.ts: clerkMiddleware, public routes, orgId → x-tenant-id header.
+- lib/auth.ts: getTenant(), tenantSQLVar() for SET LOCAL app.tenant_id per request.
+- Shell pages: export const dynamic = 'force-dynamic' (Clerk requires runtime).
+
+### Invisible UI Mantra
+- Written to web/CLAUDE.md as permanent design constraint.
+- StepStatusBadge = single canonical status renderer. Semantic colors = constants, not choices.
+
 ## Files Changed
+- web/app/ (layout, login, shell layout + page stub)
+- web/middleware.ts, lib/auth.ts, lib/db/*, lib/utils.ts
+- web/components/layout/* (Sidebar, TopNav, ThemeToggle)
+- web/components/data/DenseTable.tsx, components/domain/StepStatusBadge.tsx
+- web/styles/globals.css, tailwind.config.ts, tsconfig.json, next.config.ts, package.json
+- web/migrations/001-008.sql, web/.gitignore, web/.env.example, web/CLAUDE.md
+- docs/adrs/001-runner-model.md, docs/adrs/002-usage-billing.md
 
 ## Blockers — (none)
 
 ## Decisions
-- Scaffold already created: web/package.json, lib/db/client.ts, lib/db/query.ts, styles/globals.css, migrations 001-004
-- Tasks 004 + 005 partially done — complete remaining migrations (005-008) and verify
-- web/ is a subdirectory of the existing Electron repo (monorepo pattern)
-- All Next.js work lives in web/ — CLAUDE.md for web app to be created as web/CLAUDE.md
+- typedRoutes disabled — breaks dynamic sidebar hrefs
+- dynamic = force-dynamic on shell pages — Clerk needs runtime context
+- .env.local gitignored — real Clerk key required for dev
+- RLS via SET LOCAL per request — connection pool is shared, not per-tenant
+- runs_on on pipeline only (ADR-001), usage_ledger append-only (ADR-002)
