@@ -37,8 +37,6 @@ export async function POST(req: Request, { params }: Params) {
     await enqueueRunDag({
       runId:        run.id ?? '',
       tenantId,
-      pipelineId,
-      environmentId: body.environment_id ?? null,
       requiredTags:  (pipeline.runs_on as string[]) ?? ['hosted'],
     })
 
