@@ -84,9 +84,9 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 029 | 🔄 | Playwright UI step driver — headless Chromium in Docker, video + trace artifacts to S3 | B05 | L |
-| 030 | 🔄 | json-server mock — ephemeral per run, db.json seed, auth/latency/error-rate middleware toggles | B05 | M |
-| 031 | 🔄 | Runner Docker image — Playwright + json-server + runner agent, published to registry | B05 | M |
+| 029 | ✅ | Playwright UI step driver — headless Chromium in Docker, video + trace artifacts to S3 | B05 | L |
+| 030 | ✅ | json-server mock — ephemeral per run, db.json seed, auth/latency/error-rate middleware toggles | B05 | M |
+| 031 | ✅ | Runner Docker image — Playwright + json-server + runner agent, published to registry | B05 | M |
 
 ---
 
