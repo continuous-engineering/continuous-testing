@@ -1,50 +1,42 @@
 /**
  * POST /api/runners/result
- * Runner posts step results as they complete (streamed, one per step).
- * Also posts final run completion with runner_minutes for billing.
- * Auth via X-Runner-Token.
+ * Runner posts step results as they complete, then final run completion.
+ * Auth via X-Runner-Token. Public route — no Clerk.
  */
 import { z } from 'zod'
 import { createHash } from 'crypto'
-import { one, query } from '@/lib/db/query'
-import pool from '@/lib/db/client'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { raw, withTenant, query } from '@/lib/db/query'
 import { ok, err, handleError } from '@/lib/api'
 import { emitRunEvent } from '@/lib/sse'
 
-function sqlFile(name: string) {
-  return readFileSync(join(process.cwd(), 'lib', 'queries', `${name}.sql`), 'utf-8')
-}
-
 const StepResultBody = z.object({
-  jobId:       z.string(),
-  runId:       z.string().uuid(),
-  stepId:      z.string().uuid(),
-  status:      z.enum(['passed', 'failed', 'skipped', 'blocked']),
-  startedAt:   z.string().datetime(),
-  completedAt: z.string().datetime(),
-  durationMs:  z.number(),
-  ctxOutputs:  z.record(z.unknown()).default({}),
+  jobId:        z.string(),
+  runId:        z.string().uuid(),
+  stepId:       z.string().uuid(),
+  status:       z.enum(['passed', 'failed', 'skipped', 'blocked', 'running']),
+  startedAt:    z.string().datetime(),
+  completedAt:  z.string().datetime(),
+  durationMs:   z.number(),
+  ctxOutputs:   z.record(z.unknown()).default({}),
   responseBody: z.string().nullable().default(null),
   responseMeta: z.record(z.unknown()).default({}),
-  assertions:  z.array(z.object({
+  assertions:   z.array(z.object({
     name: z.string(), passed: z.boolean(),
     expected: z.unknown(), actual: z.unknown(),
   })).default([]),
   errorMessage: z.string().nullable().default(null),
-  artifacts:   z.array(z.object({
+  artifacts:    z.array(z.object({
     type: z.string(), url: z.string(), sizeBytes: z.number(),
   })).default([]),
 })
 
 const RunCompleteBody = z.object({
-  jobId:        z.string(),
-  runId:        z.string().uuid(),
-  runnerId:     z.string().uuid(),
-  runnerScope:  z.enum(['hosted', 'self-hosted']),
+  jobId:         z.string(),
+  runId:         z.string().uuid(),
+  runnerId:      z.string().uuid(),
+  runnerScope:   z.enum(['hosted', 'self-hosted']),
   runnerMinutes: z.number(),
-  finalStatus:  z.enum(['passed', 'failed', 'cancelled']),
+  finalStatus:   z.enum(['passed', 'failed', 'cancelled']),
 })
 
 const Body = z.discriminatedUnion('type', [
@@ -58,32 +50,27 @@ export async function POST(req: Request) {
     if (!token) return err('Missing X-Runner-Token', 401)
 
     const tokenHash = createHash('sha256').update(token).digest('hex')
-    const runner = await one<{ id: string; tenant_id: string; scope: string }>(
-      'runners/get-by-token-hash', [tokenHash],
+    const rows = await raw<{ id: string; tenant_id: string; scope: string }>(
+      `SELECT id, tenant_id, scope FROM runners WHERE token_hash = $1 AND revoked_at IS NULL`,
+      [tokenHash],
     )
+    const runner = rows[0] ?? null
     if (!runner) return err('Invalid runner token', 401)
 
     const tenantId = runner.tenant_id
     const body = Body.parse(await req.json())
 
     if (body.type === 'step_result') {
-      const client = await pool.connect()
-      try {
-        await client.query('BEGIN')
-        await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`)
-        await client.query(sqlFile('runs/upsert-result'), [
+      await withTenant(tenantId, (q) =>
+        q('runs/upsert-result', [
           body.runId, body.stepId, body.status,
           body.startedAt, body.completedAt, body.durationMs,
           JSON.stringify(body.ctxOutputs), body.responseBody,
           JSON.stringify(body.responseMeta), JSON.stringify(body.assertions),
           body.errorMessage, JSON.stringify(body.artifacts),
-        ])
-        await client.query('COMMIT')
-      } finally {
-        client.release()
-      }
+        ]),
+      )
 
-      // Emit to SSE listeners
       emitRunEvent(body.runId, {
         type: 'step_result', stepId: body.stepId,
         status: body.status, durationMs: body.durationMs,
@@ -94,49 +81,41 @@ export async function POST(req: Request) {
     }
 
     if (body.type === 'run_complete') {
-      const client = await pool.connect()
-      try {
-        await client.query('BEGIN')
-        await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`)
-        await client.query(sqlFile('runs/update-status'), [
+      await withTenant(tenantId, async (q) => {
+        await q('runs/update-status', [
           body.runId, body.finalStatus, body.runnerId, body.runnerMinutes,
         ])
-        await client.query(sqlFile('runs/update-step-counts'), [body.runId])
-        // ADR-002: append billing record
-        await client.query(sqlFile('runs/record-usage'), [
+        await q('runs/update-step-counts', [body.runId])
+        await q('runs/record-usage', [
           tenantId, body.runId, body.runnerId, body.runnerScope, body.runnerMinutes,
         ])
-        await client.query('COMMIT')
-      } finally {
-        client.release()
-      }
+      })
 
       emitRunEvent(body.runId, { type: 'run_complete', status: body.finalStatus })
 
-      // Dispatch notifications — fire and forget, never blocks result response
+      // Fire-and-forget notification on failure (non-blocking)
       if (body.finalStatus === 'failed') {
-        const runs = await query<Record<string, unknown>>('runs/get-by-id', [body.runId])
-        const run = runs[0]
-        if (run) {
-          const { dispatch } = await import('@/lib/adapters/notifications/dispatcher')
-          const pipelineRows = await query<Record<string, unknown>>('pipelines/get-with-steps', [run['pipeline_id'] as string])
+        withTenant(tenantId, async (q) => {
+          const runs = await q<Record<string, unknown>>('runs/get-by-id', [body.runId])
+          const run = runs[0]
+          if (!run) return
+          const pipelineRows = await q<Record<string, unknown>>('pipelines/get-with-steps', [run['pipeline_id'] as string])
           const pipeline = pipelineRows[0] as Record<string, unknown> | undefined
-          const notifConfig = (pipeline?.['notification_config'] ?? null) as Parameters<typeof dispatch>[2]
+          if (!pipeline?.['notification_config']) return
+          const { dispatch } = await import('@/lib/adapters/notifications/dispatcher')
           await dispatch('run_failed', {
-            event:        'run_failed',
-            tenantId,
-            projectName:  '',
-            pipelineName: String(pipeline?.['name'] ?? 'unknown'),
-            runId:        body.runId,
-            runUrl:       `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/runs/${body.runId}`,
+            event: 'run_failed', tenantId,
+            projectName: '', pipelineName: String(pipeline['name'] ?? ''),
+            runId: body.runId,
+            runUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/runs/${body.runId}`,
             summary: {
-              passed:  Number(run['passed_steps'] ?? 0),
-              failed:  Number(run['failed_steps']  ?? 0),
-              total:   Number(run['total_steps']   ?? 0),
+              passed: Number(run['passed_steps'] ?? 0),
+              failed: Number(run['failed_steps'] ?? 0),
+              total:  Number(run['total_steps'] ?? 0),
             },
             timestamp: new Date().toISOString(),
-          }, notifConfig).catch(() => { /* notification failure never breaks run result */ })
-        }
+          }, pipeline['notification_config'] as Parameters<typeof dispatch>[2])
+        }).catch(() => { /* notification failure never blocks result */ })
       }
 
       return ok({ received: true })

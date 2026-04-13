@@ -7,7 +7,7 @@
  * ADR-001: One DAG = one runner. Tag dispatch: required_tags <@ runner.tags
  */
 import { createHash } from 'crypto'
-import { raw, query } from '@/lib/db/query'
+import { raw, query, withTenant } from '@/lib/db/query'
 import pool from '@/lib/db/client'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -57,22 +57,24 @@ export async function POST(req: Request) {
   const runId = job.run_id as string
   const tenantId = runner.tenant_id
 
-  // Get run + pipeline + steps
-  const runRows = await query<Record<string, unknown>>('runs/get-by-id', [runId])
-  const run = runRows[0]
-  if (!run) return err('Run not found', 404)
+  // Get run + pipeline + steps (all within tenant RLS context)
+  const [run, pipeline, envVars] = await withTenant(tenantId, async (q) => {
+    const runRows = await q<Record<string, unknown>>('runs/get-by-id', [runId])
+    const run = runRows[0]
+    if (!run) return [null, null, {}] as const
 
-  const pipelineId = run.pipeline_id as string
-  const pipelineRows = await query<Record<string, unknown>>('pipelines/get-with-steps', [pipelineId])
-  const pipeline = pipelineRows[0] as Record<string, unknown>
+    const pipelineRows = await q<Record<string, unknown>>('pipelines/get-with-steps', [run.pipeline_id as string])
+    const pipeline = pipelineRows[0] as Record<string, unknown> | undefined
 
-  // Env vars
-  const envId = run.environment_id as string | null
-  let envVars: Record<string, string> = {}
-  if (envId) {
-    const envRows = await query<Record<string, unknown>>('environments/get-by-id', [envId])
-    envVars = (envRows[0]?.variables ?? {}) as Record<string, string>
-  }
+    const envId = run.environment_id as string | null
+    let envVars: Record<string, string> = {}
+    if (envId) {
+      const envRows = await q<Record<string, unknown>>('environments/get-by-id', [envId])
+      envVars = (envRows[0]?.variables ?? {}) as Record<string, string>
+    }
+    return [run, pipeline, envVars] as const
+  })
+  if (!run || !pipeline) return err('Run not found', 404)
 
   // Collect referenced secret names from all step configs
   const steps = (pipeline.steps ?? []) as Record<string, unknown>[]
@@ -80,8 +82,8 @@ export async function POST(req: Request) {
   let secrets: Record<string, string> = {}
 
   if (secretNames.length > 0) {
-    const secretRows = await query<{ name: string; encrypted_value: string }>(
-      'secrets/get-encrypted', [pipelineId, secretNames],
+    const secretRows = await withTenant(tenantId, (q) =>
+      q<{ name: string; encrypted_value: string }>('secrets/get-encrypted', [run.pipeline_id as string, secretNames]),
     )
     for (const row of secretRows) {
       secrets[row.name] = await decryptSecret(tenantId, row.encrypted_value)

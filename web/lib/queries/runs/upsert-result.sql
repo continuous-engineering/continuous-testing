@@ -1,9 +1,9 @@
 INSERT INTO run_results (tenant_id, run_id, step_id, status, started_at, completed_at, duration_ms, ctx_outputs, response_body, response_meta, assertions, error_message, artifacts)
 VALUES (
   current_setting('app.tenant_id')::uuid,
-  $1, $2, $3::step_status,
-  $4, $5, $6,
-  $7::jsonb, $8, $9::jsonb, $10::jsonb, $11,
+  $1::uuid, $2::uuid, $3::step_status,
+  $4::timestamptz, $5::timestamptz, $6::int,
+  $7::jsonb, $8::text, $9::jsonb, $10::jsonb, $11::text,
   $12::jsonb
 )
 ON CONFLICT (run_id, step_id) DO UPDATE
