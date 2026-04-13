@@ -1,0 +1,24 @@
+{
+  "name": "ct-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "continuous.testing — stateless test runner agent",
+  "main": "dist/index.js",
+  "scripts": {
+    "build":     "tsc",
+    "start":     "node dist/index.js",
+    "dev":       "ts-node src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
+    "json-server":       "^1.0.0-beta.15",
+    "playwright-core":   "^1.48.0",
+    "zod":               "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ts-node":     "^10.9.0",
+    "typescript":  "^5.7.0"
+  }
+}
