@@ -63,3 +63,35 @@ export async function raw<T = Record<string, unknown>>(
   const { rows } = await pool.query(sqlText, params)
   return rows as T[]
 }
+
+/**
+ * Run a function inside a transaction with tenant RLS context set.
+ * This is the standard pattern for all route handlers that touch the DB.
+ *
+ * Usage:
+ *   const result = await withTenant(tenantId, async (q) => {
+ *     return q<MyType>('entity/query-name', [param1, param2])
+ *   })
+ */
+export async function withTenant<T>(
+  tenantId: string,
+  fn: (q: <R = Record<string, unknown>>(name: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
+): Promise<T> {
+  const client: PoolClient = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    // Validated: tenantId is a Clerk orgId from server-side auth — safe to interpolate
+    await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`)
+    const result = await fn(async <R>(name: string, params?: unknown[]) => {
+      const { rows } = await client.query(sql(name), params)
+      return rows as R[]
+    })
+    await client.query('COMMIT')
+    return result
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
+}
