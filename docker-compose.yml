@@ -1,0 +1,71 @@
+version: "3.9"
+
+# continuous.testing — local development stack
+#
+# Services:
+#   postgres — database (required by web app + migrations)
+#   web      — Next.js SaaS app (API + UI)
+#   runner   — standalone test executor (separate container, ADR-001)
+#
+# Usage:
+#   docker compose up postgres        # just the DB (run web via npm run dev)
+#   docker compose up                 # full stack
+#   docker compose up runner          # runner only (point at hosted web)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       continuous_testing
+      POSTGRES_USER:     ct
+      POSTGRES_PASSWORD: ct_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ct -d continuous_testing"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL:                    postgresql://ct:ct_dev_password@postgres:5432/continuous_testing
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      CLERK_SECRET_KEY:                ${CLERK_SECRET_KEY}
+      ANTHROPIC_API_KEY:               ${ANTHROPIC_API_KEY}
+      SECRETS_MASTER_KEY:              ${SECRETS_MASTER_KEY}
+      NODE_ENV:                        production
+    ports:
+      - "3000:3000"
+
+  # ── Standalone runner — INDEPENDENT CONTAINER (ADR-001) ─────────────────────
+  # This is separate from the web app by design.
+  # One DAG = one runner process = one in-memory ctx map.
+  # Multiple runner containers can run concurrently (horizontal scale).
+  runner:
+    build:
+      context: ./runner
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+    environment:
+      CT_API_BASE:       http://web:3000
+      RUNNER_TOKEN:      ${RUNNER_TOKEN}
+      RUNNER_SCOPE:      self-hosted
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    # No ports exposed — runner is outbound only (polls CT API)
+
+volumes:
+  postgres_data:

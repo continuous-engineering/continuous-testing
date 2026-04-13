@@ -11,6 +11,13 @@
 import { executeDag } from './executor'
 import { startMockServer } from './mock-server'
 import type { StepDef, RunContext, StepResult } from './types'
+import { writeFileSync } from 'fs'
+
+const HEARTBEAT_FILE = '/tmp/ct-runner-heartbeat'
+
+function touchHeartbeat(): void {
+  try { writeFileSync(HEARTBEAT_FILE, Date.now().toString()) } catch { /* ignore */ }
+}
 
 const API_BASE  = process.env.CT_API_BASE   ?? 'https://api.continuous.testing'
 const RUNNER_TOKEN = process.env.RUNNER_TOKEN ?? ''
@@ -46,6 +53,7 @@ function startHeartbeat(): NodeJS.Timeout {
   return setInterval(async () => {
     try {
       await apiPost('/api/runners/heartbeat')
+      touchHeartbeat()
     } catch (e) {
       console.warn('[heartbeat] failed:', e instanceof Error ? e.message : e)
     }
