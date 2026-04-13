@@ -1,0 +1,105 @@
+/**
+ * POST /api/runners/claim
+ * Runner polls this to claim its next job.
+ * Returns job + full context (DAG, env vars, decrypted secrets).
+ * Auth via X-Runner-Token.
+ *
+ * ADR-001: One DAG = one runner. Tag dispatch: required_tags <@ runner.tags
+ */
+import { createHash } from 'crypto'
+import { one, query } from '@/lib/db/query'
+import pool from '@/lib/db/client'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { ok, err } from '@/lib/api'
+import { decryptSecret } from '@/lib/crypto'
+
+function sqlFile(name: string) {
+  return readFileSync(join(process.cwd(), 'lib', 'queries', `${name}.sql`), 'utf-8')
+}
+
+export async function POST(req: Request) {
+  const token = req.headers.get('x-runner-token')
+  if (!token) return err('Missing X-Runner-Token', 401)
+
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const runner = await one<{ id: string; tenant_id: string; tags: string[] }>(
+    'runners/get-by-token-hash', [tokenHash],
+  )
+  if (!runner) return err('Invalid runner token', 401)
+
+  // Claim next matching job (FOR UPDATE SKIP LOCKED in SQL)
+  const client = await pool.connect()
+  let job: Record<string, unknown> | null = null
+  try {
+    await client.query('BEGIN')
+    await client.query(`SET LOCAL app.tenant_id = '${runner.tenant_id}'`)
+    const { rows } = await client.query(
+      sqlFile('runners/claim-job'),
+      [runner.id, runner.tenant_id, runner.tags],
+    )
+    job = rows[0] ?? null
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    client.release()
+    throw e
+  } finally {
+    client.release()
+  }
+
+  if (!job) return new Response(null, { status: 204 })  // Nothing to claim
+
+  // Build full execution context for the runner
+  const runId = job.run_id as string
+  const tenantId = runner.tenant_id
+
+  // Get run + pipeline + steps
+  const runRows = await query<Record<string, unknown>>('runs/get-by-id', [runId])
+  const run = runRows[0]
+  if (!run) return err('Run not found', 404)
+
+  const pipelineId = run.pipeline_id as string
+  const pipelineRows = await query<Record<string, unknown>>('pipelines/get-with-steps', [pipelineId])
+  const pipeline = pipelineRows[0] as Record<string, unknown>
+
+  // Env vars
+  const envId = run.environment_id as string | null
+  let envVars: Record<string, string> = {}
+  if (envId) {
+    const envRows = await query<Record<string, unknown>>('environments/get-by-id', [envId])
+    envVars = (envRows[0]?.variables ?? {}) as Record<string, string>
+  }
+
+  // Collect referenced secret names from all step configs
+  const steps = (pipeline.steps ?? []) as Record<string, unknown>[]
+  const secretNames = extractSecretRefs(steps)
+  let secrets: Record<string, string> = {}
+
+  if (secretNames.length > 0) {
+    const secretRows = await query<{ name: string; encrypted_value: string }>(
+      'secrets/get-encrypted', [pipelineId, secretNames],
+    )
+    for (const row of secretRows) {
+      secrets[row.name] = await decryptSecret(tenantId, row.encrypted_value)
+    }
+  }
+
+  return ok({
+    jobId:    job.id,
+    runId,
+    dag:      pipeline.steps,
+    context: { env: envVars, secrets },
+    // secrets decrypted in this response — runner holds in memory only
+  })
+}
+
+/** Extract {{secrets.NAME}} references from all step configs */
+function extractSecretRefs(steps: Record<string, unknown>[]): string[] {
+  const refs = new Set<string>()
+  const text = JSON.stringify(steps)
+  for (const match of text.matchAll(/\{\{secrets\.([A-Z0-9_]+)\}\}/g)) {
+    if (match[1]) refs.add(match[1])
+  }
+  return [...refs]
+}
