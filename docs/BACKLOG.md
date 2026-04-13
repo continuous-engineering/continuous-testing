@@ -152,12 +152,12 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 055 | 🔄 | Webhook trigger endpoint — POST /api/triggers/:pipelineId, returns run_id, async execution | B11 | M |
-| 056 | 🔄 | GitHub Actions official action — wraps webhook trigger + polling + exit code, marketplace publish | B11 | M |
-| 057 | 🔄 | Notification adapter system — event bus, per-pipeline config, throttle (no spam on flaky suite) | B11 | M |
-| 058 | 🔄 | Slack notification adapter — webhook URL, channel, rich block message with run summary | B11 | S |
-| 059 | 🔄 | Email notification adapter — Resend, HTML template, per-event recipient list | B11 | S |
-| 060 | 🔄 | Outbound webhook notification adapter — any URL, custom headers, JSON payload shape | B11 | S |
+| 055 | ✅ | Webhook trigger endpoint — POST /api/triggers/:pipelineId, returns run_id, async execution | B11 | M |
+| 056 | ✅ | GitHub Actions official action — wraps webhook trigger + polling + exit code, marketplace publish | B11 | M |
+| 057 | ✅ | Notification adapter system — event bus, per-pipeline config, throttle (no spam on flaky suite) | B11 | M |
+| 058 | ✅ | Slack notification adapter — webhook URL, channel, rich block message with run summary | B11 | S |
+| 059 | ✅ | Email notification adapter — Resend, HTML template, per-event recipient list | B11 | S |
+| 060 | ✅ | Outbound webhook notification adapter — any URL, custom headers, JSON payload shape | B11 | S |
 
 ---
 
