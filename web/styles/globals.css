@@ -1,0 +1,115 @@
+@import 'tailwindcss';
+
+/* ─── continuous.testing Design Tokens ──────────────────────────────────────── */
+
+:root {
+  /* Emerald — CT brand accent */
+  --ct-accent-300: #6ee7b7;
+  --ct-accent-400: #34d399;
+  --ct-accent-500: #10b981;   /* primary */
+  --ct-accent-600: #059669;
+  --ct-accent-700: #047857;
+
+  /* Semantic — universal test status colors. Never repurpose these. */
+  --ct-pass:    #10b981;   /* emerald  — passed    */
+  --ct-fail:    #f43f5e;   /* rose     — failed    */
+  --ct-flaky:   #f59e0b;   /* amber    — flaky     */
+  --ct-running: #0ea5e9;   /* sky      — running   */
+  --ct-skipped: #64748b;   /* slate    — skipped   */
+  --ct-blocked: #a855f7;   /* purple   — blocked   */
+
+  /* Typography */
+  --ct-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --ct-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Radius */
+  --ct-radius-sm: 4px;
+  --ct-radius-md: 6px;
+  --ct-radius-lg: 8px;
+
+  /* Density — QA manager persona, compact */
+  --ct-row-h:   36px;
+  --ct-row-px:  12px;
+  --ct-row-gap: 8px;
+}
+
+/* ─── Dark theme (default) ───────────────────────────────────────────────── */
+[data-theme='dark'], :root {
+  --ct-bg:              #09090f;
+  --ct-surface:         #111118;
+  --ct-surface-raised:  #1c1c26;
+  --ct-surface-overlay: #24242f;
+  --ct-border:          #2a2a3a;
+  --ct-border-subtle:   #1e1e2a;
+  --ct-text-1:          #f0f0f6;   /* primary */
+  --ct-text-2:          #8b8ba8;   /* secondary */
+  --ct-text-3:          #52526a;   /* muted */
+}
+
+/* ─── Light theme ────────────────────────────────────────────────────────── */
+[data-theme='light'] {
+  --ct-bg:              #f8f8fc;
+  --ct-surface:         #ffffff;
+  --ct-surface-raised:  #f2f2f8;
+  --ct-surface-overlay: #eaeaf2;
+  --ct-border:          #e0e0ec;
+  --ct-border-subtle:   #ebebf5;
+  --ct-text-1:          #0d0d1a;
+  --ct-text-2:          #5a5a78;
+  --ct-text-3:          #9898b0;
+}
+
+/* ─── Base reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--ct-font-sans);
+  background-color: var(--ct-bg);
+  color: var(--ct-text-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+code, pre, kbd {
+  font-family: var(--ct-font-mono);
+}
+
+/* ─── Dense table rows ────────────────────────────────────────────────────── */
+.ct-row {
+  height: var(--ct-row-h);
+  padding-inline: var(--ct-row-px);
+  display: flex;
+  align-items: center;
+  gap: var(--ct-row-gap);
+  border-bottom: 1px solid var(--ct-border-subtle);
+}
+
+.ct-row:hover {
+  background-color: var(--ct-surface-raised);
+}
+
+/* ─── Status dot ─────────────────────────────────────────────────────────── */
+.ct-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ct-dot--pass    { background-color: var(--ct-pass);    }
+.ct-dot--fail    { background-color: var(--ct-fail);    }
+.ct-dot--flaky   { background-color: var(--ct-flaky);   }
+.ct-dot--running { background-color: var(--ct-running); animation: ct-pulse 1.5s infinite; }
+.ct-dot--skipped { background-color: var(--ct-skipped); }
+.ct-dot--blocked { background-color: var(--ct-blocked); }
+
+@keyframes ct-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
