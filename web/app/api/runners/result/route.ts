@@ -6,7 +6,7 @@
  */
 import { z } from 'zod'
 import { createHash } from 'crypto'
-import { one } from '@/lib/db/query'
+import { one, query } from '@/lib/db/query'
 import pool from '@/lib/db/client'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -112,6 +112,32 @@ export async function POST(req: Request) {
       }
 
       emitRunEvent(body.runId, { type: 'run_complete', status: body.finalStatus })
+
+      // Dispatch notifications — fire and forget, never blocks result response
+      if (body.finalStatus === 'failed') {
+        const runs = await query<Record<string, unknown>>('runs/get-by-id', [body.runId])
+        const run = runs[0]
+        if (run) {
+          const { dispatch } = await import('@/lib/adapters/notifications/dispatcher')
+          const pipelineRows = await query<Record<string, unknown>>('pipelines/get-with-steps', [run['pipeline_id'] as string])
+          const pipeline = pipelineRows[0] as Record<string, unknown> | undefined
+          const notifConfig = (pipeline?.['notification_config'] ?? null) as Parameters<typeof dispatch>[2]
+          await dispatch('run_failed', {
+            event:        'run_failed',
+            tenantId,
+            projectName:  '',
+            pipelineName: String(pipeline?.['name'] ?? 'unknown'),
+            runId:        body.runId,
+            runUrl:       `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/runs/${body.runId}`,
+            summary: {
+              passed:  Number(run['passed_steps'] ?? 0),
+              failed:  Number(run['failed_steps']  ?? 0),
+              total:   Number(run['total_steps']   ?? 0),
+            },
+            timestamp: new Date().toISOString(),
+          }, notifConfig).catch(() => { /* notification failure never breaks run result */ })
+        }
+      }
 
       return ok({ received: true })
     }
