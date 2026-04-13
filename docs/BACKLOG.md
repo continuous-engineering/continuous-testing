@@ -192,5 +192,5 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 074 | ⬜ | Self-hosted runner agent — Docker image, registration flow, polling, stateless lifecycle | B14 | L |
-| 075 | ⬜ | Runner one-liner install + docs — docker run command, env vars, registration walkthrough | B14 | S |
+| 074 | ✅ | Self-hosted runner agent — Docker image, registration flow, polling, stateless lifecycle | B14 | L |
+| 075 | ✅ | Runner one-liner install + docs — docker run command, env vars, registration walkthrough | B14 | S |
