@@ -201,11 +201,11 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 076 | 🔄 | Docker Compose with Caddy reverse proxy + ct-network — only Caddy exposed on :8080 | B15 | S |
-| 077 | 🔄 | Test mode auth bypass — X-CT-Test-Key header + CT_TEST_API_KEY env var, fixed test tenant | B15 | S |
-| 078 | 🔄 | Runner token seeding — 3 hosted runners pre-registered in DB via migration 000 | B15 | S |
-| 079 | 🔄 | Bootstrap test script — Claude generates pipelines from codebase, triggers runs, polls results | B15 | M |
-| 080 | 🔄 | Autonomous fix loop — iterate until all tests pass, write devlog on each run | B15 | L |
+| 076 | ✅ | Docker Compose with Caddy reverse proxy + ct-network — only Caddy exposed on :8080 | B15 | S |
+| 077 | ✅ | Test mode auth bypass — X-CT-Test-Key header + CT_TEST_API_KEY env var, fixed test tenant | B15 | S |
+| 078 | ✅ | Runner token seeding — 3 hosted runners pre-registered in DB via migration 000 | B15 | S |
+| 079 | ✅ | Bootstrap test script — Claude generates pipelines from codebase, triggers runs, polls results | B15 | M |
+| 080 | ✅ | Autonomous fix loop — iterate until all tests pass, write devlog on each run | B15 | L |
 | 081 | ⬜ | Bug: runner heartbeat response — must return `runnerId` field | B15 | XS |
 | 082 | ⬜ | Bug: middleware test-key bypass — runners/ must remain public (X-Runner-Token auth) | B15 | XS |
 | 083 | ⬜ | Bug: RLS test tenant — SET LOCAL must use correct UUID for test tenant | B15 | S |
