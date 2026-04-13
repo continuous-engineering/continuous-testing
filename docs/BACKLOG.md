@@ -138,13 +138,13 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 048 | ⬜ | Internal issues model CRUD + API — 10 core fields, status/severity enums, source run+step linkage | B10 | M |
-| 049 | ⬜ | Auto-issue creation on failure — dedup same step+pipeline, regression reopen when test re-fails | B10 | M |
-| 050 | ⬜ | Background sync worker — BullMQ repeat job 60s, sync_log table drives all push/pull | B10 | M |
-| 051 | ⬜ | Jira sync adapter — OAuth2, push/pull/handleWebhook, our 4 statuses → Jira transitions | B10 | L |
-| 052 | ⬜ | GitHub Issues sync adapter — PAT/OAuth, push/pull/handleWebhook, open/closed mapping | B10 | M |
-| 053 | ⬜ | Linear sync adapter — API key, push/pull/handleWebhook, priority + status mapping | B10 | M |
-| 054 | ⬜ | Issues list UI — dense table, status/severity filter, sync status indicator, external deep links | B10 | M |
+| 048 | 🔄 | Internal issues model CRUD + API — 10 core fields, status/severity enums, source run+step linkage | B10 | M |
+| 049 | 🔄 | Auto-issue creation on failure — dedup same step+pipeline, regression reopen when test re-fails | B10 | M |
+| 050 | 🔄 | Background sync worker — BullMQ repeat job 60s, sync_log table drives all push/pull | B10 | M |
+| 051 | 🔄 | Jira sync adapter — OAuth2, push/pull/handleWebhook, our 4 statuses → Jira transitions | B10 | L |
+| 052 | 🔄 | GitHub Issues sync adapter — PAT/OAuth, push/pull/handleWebhook, open/closed mapping | B10 | M |
+| 053 | 🔄 | Linear sync adapter — API key, push/pull/handleWebhook, priority + status mapping | B10 | M |
+| 054 | 🔄 | Issues list UI — dense table, status/severity filter, sync status indicator, external deep links | B10 | M |
 
 ---
 
@@ -165,12 +165,12 @@
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 061 | ⬜ | Runner management UI — list, register (token copy-on-create), tags, last-seen, revoke | B12 | M |
-| 062 | ⬜ | Secrets management UI — list, create, update, value never shown, referenced-by pipelines | B12 | M |
-| 063 | ⬜ | Environment management UI — profiles, variable editor, active env, diff between envs | B12 | M |
-| 064 | ⬜ | Team management UI — invite by email, Admin/Member/Viewer roles, remove | B12 | M |
-| 065 | ⬜ | Integration settings UI — Jira/GitHub/Linear OAuth config, test connection, connection health | B12 | M |
-| 066 | ⬜ | Notification settings UI — event × channel matrix, per-pipeline override, throttle config | B12 | M |
+| 061 | 🔄 | Runner management UI — list, register (token copy-on-create), tags, last-seen, revoke | B12 | M |
+| 062 | 🔄 | Secrets management UI — list, create, update, value never shown, referenced-by pipelines | B12 | M |
+| 063 | 🔄 | Environment management UI — profiles, variable editor, active env, diff between envs | B12 | M |
+| 064 | 🔄 | Team management UI — invite by email, Admin/Member/Viewer roles, remove | B12 | M |
+| 065 | 🔄 | Integration settings UI — Jira/GitHub/Linear OAuth config, test connection, connection health | B12 | M |
+| 066 | 🔄 | Notification settings UI — event × channel matrix, per-pipeline override, throttle config | B12 | M |
 
 ---
 
