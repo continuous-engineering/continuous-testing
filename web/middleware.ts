@@ -6,7 +6,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyJwtEdge } from '@/lib/auth-edge'
 
-const PUBLIC = ['/login', '/signup', '/api/auth/', '/api/webhooks/', '/api/triggers/', '/api/runners/']
+// Only these exact paths bypass auth — /api/auth/me is NOT listed (requires valid session)
+const PUBLIC = [
+  '/login',
+  '/signup',
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/logout',
+  '/api/webhooks/',
+  '/api/triggers/',
+  '/api/runners/',
+]
 const SESSION_COOKIE = 'ct_session'
 
 function isPublic(p: string) { return PUBLIC.some(r => p.startsWith(r)) }

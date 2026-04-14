@@ -56,6 +56,7 @@ services:
       NEXT_PUBLIC_APP_URL:             ${NEXT_PUBLIC_APP_URL:-http://localhost:8080}
       CT_TEST_API_KEY:                 ${CT_TEST_API_KEY:-ct-test-api-key-local-dev-only}
       AUTH_SECRET:                     ${AUTH_SECRET:-dev-only-change-me-in-production-min-32-chars!}
+      CT_SECURE_COOKIES:               ${CT_SECURE_COOKIES:-false}
       NODE_ENV:                        production
     volumes:
       # Mount SQL queries as a volume — changes take effect on container restart, no rebuild needed

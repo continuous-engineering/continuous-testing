@@ -88,7 +88,9 @@ export async function setSessionCookie(token: string) {
   const jar = await cookies()
   jar.set(COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    // Use CT_SECURE_COOKIES=true only when serving over HTTPS.
+    // Local Docker on HTTP must be false or browser silently drops the cookie.
+    secure: process.env.CT_SECURE_COOKIES === 'true',
     sameSite: 'lax',
     path: '/',
     maxAge: TTL,
