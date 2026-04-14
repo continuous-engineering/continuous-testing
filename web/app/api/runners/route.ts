@@ -25,9 +25,10 @@ export async function POST(req: Request) {
     const token = randomBytes(32).toString('hex')
     const tokenHash = createHash('sha256').update(token).digest('hex')
 
+    // scope is always 'self-hosted' — enforced in SQL too. 'hosted' = platform only.
     const rows = await withTenant(tenantId, (q) =>
       q('runners/register', [
-        tenantId, body.name, 'self-hosted',
+        tenantId, body.name,
         body.tags, body.capabilities, tokenHash, userId,
       ]),
     )

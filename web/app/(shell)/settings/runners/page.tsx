@@ -100,13 +100,16 @@ export default function RunnersPage() {
         <div>
           <h1 className="text-title" style={{ color: 'var(--ct-text-1)' }}>Runners</h1>
           <p className="text-body mt-1" style={{ color: 'var(--ct-text-2)' }}>
-            Hosted runners are managed by continuous.testing. Register your own for private networks.
+            <strong style={{ color: 'var(--ct-text-1)' }}>Hosted runners</strong> are managed by continuous.testing —
+            shared across all workspaces, zero config required.{' '}
+            <strong style={{ color: 'var(--ct-text-1)' }}>Self-hosted runners</strong> run in your own
+            infrastructure and are tied to this workspace only.
           </p>
         </div>
         <button onClick={() => setShowRegister(!showRegister)}
           className="text-label px-3 py-1.5 rounded-md"
           style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
-          + Register runner
+          + Register self-hosted runner
         </button>
       </div>
 
@@ -130,7 +133,13 @@ export default function RunnersPage() {
       {showRegister && (
         <div className="rounded-md border p-5 flex flex-col gap-4"
           style={{ borderColor: 'var(--ct-border)', background: 'var(--ct-surface)' }}>
-          <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>Register self-hosted runner</h2>
+          <div>
+            <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>Register self-hosted runner</h2>
+            <p className="text-caption mt-1" style={{ color: 'var(--ct-text-3)' }}>
+              This runner will be tied to your workspace and can only execute jobs from this workspace.
+              It cannot access other tenants' jobs or secrets.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Name</label>
@@ -206,9 +215,13 @@ export default function RunnersPage() {
       {/* Hosted runners */}
       {hosted.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>
-            Hosted runners <span className="text-caption ml-1" style={{ color: 'var(--ct-text-3)' }}>managed by continuous.testing</span>
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>Hosted runners</h2>
+            <span className="text-caption px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--ct-accent-400)', fontSize: 11 }}>
+              Platform · shared · read-only
+            </span>
+          </div>
           <div className="rounded-md border overflow-hidden" style={{ borderColor: 'var(--ct-border)' }}>
             {hosted.map((r, i) => (
               <RunnerRow key={r.id} runner={r} onRevoke={revoke}
