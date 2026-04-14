@@ -13,7 +13,7 @@ const AssertionSchema = z.object({
 
 export const ApiStepConfig = z.object({
   method:     HttpMethod,
-  url:        z.string().min(1),
+  url:        z.string(),             // empty allowed at authoring time; runner validates at execution
   headers:    z.record(z.string()).default({}),
   body:       z.unknown().optional(),
   auth:       z.object({ type: z.enum(['none', 'bearer', 'basic', 'api-key']), value: z.string() }).optional(),
@@ -44,8 +44,8 @@ export const UiStepConfig = z.object({
 })
 
 export const AiStepConfig = z.object({
-  prompt:           z.string().min(1),
-  expected_response: z.string().min(1),
+  prompt:           z.string(),       // empty allowed at authoring time; runner validates at execution
+  expected_response: z.string(),
   threshold:        z.number().min(0).max(1).default(0.8),
   agent_url:        z.string().url().optional(),   // override default agent endpoint
   body_template:    z.record(z.unknown()).optional(),
