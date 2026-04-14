@@ -24,8 +24,8 @@ export async function POST(req: Request) {
 
   const tokenHash = createHash('sha256').update(token).digest('hex')
   // raw() bypasses RLS — correct for cross-tenant token lookup
-  const rows = await raw<{ id: string; tenant_id: string; tags: string[] }>(
-    `SELECT id, tenant_id, tags FROM runners WHERE token_hash = $1 AND revoked_at IS NULL`,
+  const rows = await raw<{ id: string; tenant_id: string; tags: string[]; scope: string }>(
+    `SELECT id, tenant_id, tags, scope FROM runners WHERE token_hash = $1 AND revoked_at IS NULL`,
     [tokenHash],
   )
   const runner = rows[0] ?? null
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     await client.query(`SET LOCAL app.tenant_id = '${runner.tenant_id}'`)
     const { rows } = await client.query(
       sqlFile('runners/claim-job'),
-      [runner.id, runner.tenant_id, runner.tags],
+      [runner.id, runner.tenant_id, runner.tags, runner.scope],
     )
     job = rows[0] ?? null
     await client.query('COMMIT')
@@ -55,7 +55,8 @@ export async function POST(req: Request) {
 
   // Build full execution context for the runner
   const runId = job.run_id as string
-  const tenantId = runner.tenant_id
+  // Use the job's tenant_id — for hosted runners this may differ from runner.tenant_id
+  const tenantId = (job.tenant_id as string) || runner.tenant_id
 
   // Get run + pipeline + steps (all within tenant RLS context)
   const [run, pipeline, envVars] = await withTenant(tenantId, async (q) => {
