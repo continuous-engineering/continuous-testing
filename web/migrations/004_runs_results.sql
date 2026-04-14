@@ -42,7 +42,8 @@ CREATE TABLE run_results (
   assertions    JSONB NOT NULL DEFAULT '[]',  -- [{name, passed, expected, actual}]
   error_message TEXT,
   -- Artifacts stored in S3 (video, trace, screenshot paths)
-  artifacts     JSONB NOT NULL DEFAULT '[]'   -- [{type, url, size_bytes}]
+  artifacts     JSONB NOT NULL DEFAULT '[]',  -- [{type, url, size_bytes}]
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Billing rollup: runner minutes per tenant per month

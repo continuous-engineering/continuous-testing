@@ -1,4 +1,5 @@
--- Flaky step detection: steps with 5-95% fail rate over last 30 days, min 5 runs
+-- Flaky step detection: steps with 5-95% fail rate, min 5 runs
+-- Note: run_results has no created_at — filter by joined run.created_at instead
 SELECT
   s.id                                          AS step_id,
   s.name                                        AS step_name,
@@ -13,11 +14,12 @@ SELECT
     1
   )                                             AS fail_pct
 FROM run_results rr
+JOIN runs       r    ON r.id    = rr.run_id
 JOIN steps      s    ON s.id    = rr.step_id
 JOIN pipelines  p    ON p.id    = s.pipeline_id
 JOIN projects   proj ON proj.id = p.project_id
-WHERE rr.tenant_id  = current_setting('app.tenant_id')::uuid
-  AND rr.created_at > NOW() - INTERVAL '30 days'
+WHERE rr.tenant_id  = current_setting('app.tenant_id', true)::uuid
+  AND r.created_at  > NOW() - INTERVAL '30 days'
 GROUP BY s.id, s.name, s.type, p.id, p.name, proj.id
 HAVING COUNT(rr.id) >= 5
    AND ROUND(SUM(CASE WHEN rr.status = 'failed' THEN 1 ELSE 0 END) * 100.0 / COUNT(rr.id), 1)

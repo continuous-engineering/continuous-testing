@@ -18,6 +18,6 @@ SELECT
 FROM runs r
 JOIN pipelines p    ON p.id    = r.pipeline_id
 JOIN projects  proj ON proj.id = p.project_id
-WHERE r.tenant_id = current_setting('app.tenant_id')::uuid
+WHERE r.tenant_id = current_setting('app.tenant_id', true)::uuid
 ORDER BY r.created_at DESC
 LIMIT 20;
