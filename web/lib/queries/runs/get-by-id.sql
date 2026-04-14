@@ -2,6 +2,8 @@ SELECT r.id, r.status, r.trigger, r.triggered_by,
        r.started_at, r.completed_at, r.runner_minutes,
        r.total_steps, r.passed_steps, r.failed_steps, r.skipped_steps,
        r.pipeline_id, r.environment_id,
+       p.name AS pipeline_name, p.project_id,
+       proj.name AS project_name,
        COALESCE(
          json_agg(
            json_build_object(
@@ -21,7 +23,9 @@ SELECT r.id, r.status, r.trigger, r.triggered_by,
          '[]'
        ) AS step_results
 FROM runs r
+JOIN pipelines p    ON p.id    = r.pipeline_id
+JOIN projects  proj ON proj.id = p.project_id
 LEFT JOIN run_results rr ON rr.run_id = r.id
 WHERE r.id = $1
   AND r.tenant_id = current_setting('app.tenant_id')::uuid
-GROUP BY r.id;
+GROUP BY r.id, p.name, p.project_id, proj.name;
