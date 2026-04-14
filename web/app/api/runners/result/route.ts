@@ -72,9 +72,14 @@ export async function POST(req: Request) {
       )
 
       emitRunEvent(body.runId, {
-        type: 'step_result', stepId: body.stepId,
-        status: body.status, durationMs: body.durationMs,
-        assertions: body.assertions,
+        type:         'step_result',
+        stepId:       body.stepId,
+        status:       body.status,
+        durationMs:   body.durationMs,
+        assertions:   body.assertions,
+        errorMessage: body.errorMessage,
+        responseBody: body.responseBody ? body.responseBody.slice(0, 4000) : null,
+        responseMeta: body.responseMeta,
       })
 
       return ok({ received: true })

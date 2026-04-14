@@ -12,7 +12,7 @@ FROM issues i
 LEFT JOIN issue_refs ir ON ir.issue_id = i.id
 WHERE i.tenant_id  = current_setting('app.tenant_id')::uuid
   AND i.project_id = $1
-  AND ($2::text IS NULL OR i.status = $2)
+  AND ($2 IS NULL OR i.status = $2::issue_status)
 GROUP BY i.id
 ORDER BY i.last_seen_at DESC
 LIMIT 100;

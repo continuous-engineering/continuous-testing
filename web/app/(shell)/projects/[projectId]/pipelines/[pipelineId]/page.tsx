@@ -26,7 +26,10 @@ type Pipeline = {
 
 type StepResult = {
   step_id: string; status: StepStatus; duration_ms: number
-  assertions: { name: string; passed: boolean }[]; error_message: string | null
+  assertions: { name: string; passed: boolean }[]
+  error_message: string | null
+  response_body: string | null
+  response_meta: Record<string, unknown>
 }
 
 type RunState = {
@@ -76,10 +79,13 @@ export default function PipelinePage() {
         setRun(prev => {
           if (!prev) return prev
           const stepResults = { ...prev.stepResults, [event.stepId as string]: {
-            step_id: event.stepId as string, status: event.status as StepStatus,
-            duration_ms: event.durationMs as number,
-            assertions: event.assertions as { name: string; passed: boolean }[],
-            error_message: null,
+            step_id:       event.stepId as string,
+            status:        event.status as StepStatus,
+            duration_ms:   event.durationMs as number,
+            assertions:    event.assertions as { name: string; passed: boolean }[],
+            error_message: event.errorMessage as string | null ?? null,
+            response_body: event.responseBody as string | null ?? null,
+            response_meta: event.responseMeta as Record<string, unknown> ?? {},
           }}
           const vals = Object.values(stepResults)
           return { ...prev, stepResults,
@@ -194,6 +200,7 @@ export default function PipelinePage() {
                           durationMs={stepResult?.duration_ms}
                           isEditing={editingStepId === step.id}
                           onClick={() => editingStepId === step.id ? closeStepEditor() : openStepEditor(step.id)} />
+                        {stepResult && <StepOutput result={stepResult} />}
                       </div>
                       <button onClick={() => deleteStep(step.id)}
                         className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded text-body"
@@ -223,6 +230,99 @@ export default function PipelinePage() {
           onClose={() => { closeStepEditor(); setZenMode(false) }}
           onSaved={reload}
         />
+      )}
+    </div>
+  )
+}
+
+// ── Step Output Panel ─────────────────────────────────────────────────────────
+
+function StepOutput({ result }: { result: StepResult }) {
+  const [open, setOpen] = useState(false)
+  const hasDetail = result.error_message || result.response_body || result.assertions.length > 0
+
+  if (!hasDetail) return null
+
+  const statusHue = result.status === 'passed' ? 'var(--ct-pass)'
+    : result.status === 'failed' ? 'var(--ct-fail)'
+    : 'var(--ct-text-3)'
+
+  return (
+    <div className="ml-0 mt-0.5 rounded-b-md border-x border-b overflow-hidden"
+      style={{ borderColor: 'var(--ct-border)', background: 'var(--ct-surface-raised)' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-[var(--ct-surface-overlay)] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {result.error_message && (
+            <span className="text-caption" style={{ color: 'var(--ct-fail)' }}>✕ {result.error_message.slice(0, 60)}{result.error_message.length > 60 ? '…' : ''}</span>
+          )}
+          {!result.error_message && result.assertions.length > 0 && (
+            <span className="text-caption" style={{ color: statusHue }}>
+              {result.assertions.filter(a => a.passed).length}/{result.assertions.length} assertions passed
+            </span>
+          )}
+          {!result.error_message && result.assertions.length === 0 && result.response_body && (
+            <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>Response received</span>
+          )}
+        </div>
+        <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-3 px-3 pb-3">
+          {/* Assertions */}
+          {result.assertions.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-caption font-semibold" style={{ color: 'var(--ct-text-2)' }}>Assertions</p>
+              {result.assertions.map((a, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span style={{ color: a.passed ? 'var(--ct-pass)' : 'var(--ct-fail)', fontSize: 11 }}>
+                    {a.passed ? '✓' : '✕'}
+                  </span>
+                  <span className="text-caption" style={{ color: a.passed ? 'var(--ct-text-2)' : 'var(--ct-fail)' }}>
+                    {a.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {result.error_message && (
+            <div className="flex flex-col gap-1">
+              <p className="text-caption font-semibold" style={{ color: 'var(--ct-fail)' }}>Error</p>
+              <pre className="text-caption font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all"
+                style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--ct-fail)', maxHeight: 120 }}>
+                {result.error_message}
+              </pre>
+            </div>
+          )}
+
+          {/* Response body */}
+          {result.response_body && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <p className="text-caption font-semibold" style={{ color: 'var(--ct-text-2)' }}>
+                  Response
+                  {result.response_meta?.status != null && (
+                    <span className="ml-2 font-mono" style={{ color: 'var(--ct-accent-400)' }}>
+                      {String(result.response_meta.status)}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <pre className="text-caption font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all"
+                style={{ background: 'var(--ct-surface-overlay)', color: 'var(--ct-text-1)', maxHeight: 200, fontSize: 11 }}>
+                {(() => {
+                  try { return JSON.stringify(JSON.parse(result.response_body!), null, 2) }
+                  catch { return result.response_body }
+                })()}
+              </pre>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
