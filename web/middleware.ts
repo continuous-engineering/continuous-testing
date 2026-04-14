@@ -4,7 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyJwt } from '@/lib/auth'
+import { verifyJwtEdge } from '@/lib/auth-edge'
 
 const PUBLIC = ['/login', '/signup', '/api/auth/', '/api/webhooks/', '/api/triggers/', '/api/runners/']
 const SESSION_COOKIE = 'ct_session'
@@ -37,7 +37,7 @@ export async function middleware(req: NextRequest) {
       : NextResponse.redirect(new URL('/login', req.url))
   }
 
-  const payload = await verifyJwt(token)
+  const payload = await verifyJwtEdge(token)
   if (!payload?.sub || !payload.org) {
     const res = isApi(pathname)
       ? NextResponse.json({ error: 'Session expired' }, { status: 401 })
