@@ -1,58 +1,120 @@
-import { auth } from '@clerk/nextjs/server'
-import { headers } from 'next/headers'
-
-export type TenantContext = {
-  userId: string
-  tenantId: string  // Clerk orgId
-}
-
-// ── Test mode bypass ──────────────────────────────────────────────────────────
-// When CT_TEST_API_KEY env var is set AND request carries matching X-CT-Test-Key header,
-// auth is bypassed with a fixed test tenant/user. NEVER enabled in production.
-// The test tenant ID is a fixed UUID derived from 'ct-test-tenant'.
-const TEST_TENANT_ID = '00000000-0000-0000-0000-000000000001'
-const TEST_USER_ID   = 'user_test_local'
-
-function isTestRequest(hdrs: Awaited<ReturnType<typeof headers>>): boolean {
-  const testKey = process.env.CT_TEST_API_KEY
-  // Test mode active when CT_TEST_API_KEY is set AND request carries matching header.
-  // NODE_ENV check removed — CT_TEST_API_KEY being set in production is admin's explicit choice.
-  if (!testKey) return false
-  return hdrs.get('x-ct-test-key') === testKey
-}
-
 /**
- * Get tenant context for API route handlers.
- * In test mode (CT_TEST_API_KEY set + matching header): returns fixed test tenant.
- * Otherwise requires Clerk auth.
+ * lib/auth.ts — Own JWT auth. No Clerk. No external dependency.
+ *
+ * Session flow:
+ *   POST /api/auth/login → create session → set httpOnly cookie → return user
+ *   Middleware reads cookie → validates JWT → injects headers (x-user-id, x-tenant-id)
+ *   Route handler calls getTenant() → reads those headers
  */
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
+import { createHash, randomBytes }              from 'crypto'
+import { cookies, headers }                     from 'next/headers'
+import { raw }                                  from '@/lib/db/query'
+
+const SECRET = new TextEncoder().encode(
+  process.env.AUTH_SECRET ?? 'dev-only-change-me-in-production-min-32-chars!',
+)
+const COOKIE  = 'ct_session'
+const TTL     = 30 * 86_400        // 30 days in seconds
+
+export type TenantContext = { userId: string; tenantId: string }
+
+type SessionPayload = JWTPayload & { sub: string; org: string; jti: string }
+
+// ── Test-mode bypass ──────────────────────────────────────────────────────
+const TEST_TENANT = '00000000-0000-0000-0000-000000000001'
+const TEST_USER   = 'user_test_local'
+
+async function isTestRequest(): Promise<boolean> {
+  const key = process.env.CT_TEST_API_KEY
+  if (!key) return false
+  const h = await headers()
+  return h.get('x-ct-test-key') === key
+}
+
+// ── JWT ───────────────────────────────────────────────────────────────────
+export async function signSession(userId: string, orgId: string, jti: string): Promise<string> {
+  return new SignJWT({ sub: userId, org: orgId, jti })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(`30d`)
+    .sign(SECRET)
+}
+
+export async function verifyJwt(token: string): Promise<SessionPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, SECRET)
+    return payload as SessionPayload
+  } catch { return null }
+}
+
+function hashToken(t: string) { return createHash('sha256').update(t).digest('hex') }
+
+// ── Session CRUD ──────────────────────────────────────────────────────────
+export async function createSession(
+  userId: string, orgId: string,
+  meta: { ua?: string; ip?: string } = {},
+): Promise<string> {
+  const jti   = randomBytes(16).toString('hex')
+  const token = await signSession(userId, orgId, jti)
+  const exp   = new Date(Date.now() + TTL * 1000)
+  await raw(
+    `INSERT INTO sessions (user_id, org_id, token_hash, expires_at, user_agent, ip)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [userId, orgId, hashToken(token), exp, meta.ua ?? null, meta.ip ?? null],
+  )
+  return token
+}
+
+export async function validateToken(token: string): Promise<TenantContext | null> {
+  const payload = await verifyJwt(token)
+  if (!payload?.sub || !payload.org) return null
+  const rows = await raw<{ user_id: string; org_id: string }>(
+    `UPDATE sessions SET last_seen = now()
+     WHERE token_hash = $1 AND expires_at > now()
+     RETURNING user_id, org_id`,
+    [hashToken(token)],
+  )
+  if (!rows[0]) return null
+  return { userId: rows[0].user_id, tenantId: rows[0].org_id }
+}
+
+export async function revokeToken(token: string): Promise<void> {
+  await raw(`DELETE FROM sessions WHERE token_hash = $1`, [hashToken(token)])
+}
+
+// ── Cookie helpers ────────────────────────────────────────────────────────
+export async function setSessionCookie(token: string) {
+  const jar = await cookies()
+  jar.set(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: TTL,
+  })
+}
+
+export async function clearSessionCookie() {
+  const jar = await cookies()
+  jar.delete(COOKIE)
+}
+
+export async function getSessionToken(): Promise<string | null> {
+  const jar = await cookies()
+  return jar.get(COOKIE)?.value ?? null
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────
 export async function getTenant(): Promise<TenantContext> {
-  const hdrs = await headers()
-
-  if (isTestRequest(hdrs)) {
-    return { userId: TEST_USER_ID, tenantId: TEST_TENANT_ID }
-  }
-
-  const { userId, orgId } = await auth()
-  if (!userId) throw new Error('Unauthenticated')
-  if (!orgId)  throw new Error('No organization selected')
-  return { userId, tenantId: orgId }
+  if (await isTestRequest()) return { userId: TEST_USER, tenantId: TEST_TENANT }
+  const h = await headers()
+  const userId   = h.get('x-user-id')
+  const tenantId = h.get('x-tenant-id')
+  if (!userId || !tenantId) throw new Error('Unauthenticated')
+  return { userId, tenantId }
 }
 
-/**
- * Build Postgres session variables for RLS.
- */
 export function tenantSQLVar(tenantId: string): string {
   return `SET LOCAL app.tenant_id = '${tenantId}'`
-}
-
-/**
- * Get tenant ID from request headers (set by middleware).
- */
-export async function getTenantIdFromHeaders(): Promise<string> {
-  const hdrs = await headers()
-  if (isTestRequest(hdrs)) return TEST_TENANT_ID
-  const tenantId = hdrs.get('x-tenant-id')
-  if (!tenantId) throw new Error('No tenant context in headers')
-  return tenantId
 }
