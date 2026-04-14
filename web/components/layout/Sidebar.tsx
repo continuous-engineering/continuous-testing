@@ -34,9 +34,10 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    title: 'Import',
+    title: 'Create',
     items: [
-      { label: 'API Spec / OpenAPI', href: '/import' },
+      { label: 'Record browser',     href: '/record' },
+      { label: 'Import / OpenAPI',   href: '/import' },
     ],
   },
   {
