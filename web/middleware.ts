@@ -1,45 +1,56 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+/**
+ * middleware.ts — Own JWT session validation. No Clerk.
+ * Reads ct_session cookie → validates → injects x-user-id + x-tenant-id headers.
+ */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { verifyJwt } from '@/lib/auth'
 
-const isPublicRoute = createRouteMatcher([
-  '/login(.*)',
-  '/api/webhooks/(.*)',   // inbound issue sync
-  '/api/triggers/(.*)',  // CI/CD: API key auth
-  '/api/runners/(.*)',   // runner protocol: X-Runner-Token auth
-])
+const PUBLIC = ['/login', '/signup', '/api/auth/', '/api/webhooks/', '/api/triggers/', '/api/runners/']
+const SESSION_COOKIE = 'ct_session'
 
-/** Test mode: bypass Clerk when X-CT-Test-Key matches CT_TEST_API_KEY env var */
-function isTestMode(req: NextRequest): boolean {
-  const testKey = process.env.CT_TEST_API_KEY
-  if (!testKey) return false
-  return req.headers.get('x-ct-test-key') === testKey
+function isPublic(p: string) { return PUBLIC.some(r => p.startsWith(r)) }
+function isApi(p: string)    { return p.startsWith('/api/') }
+
+function isTestRequest(req: NextRequest): boolean {
+  const key = process.env.CT_TEST_API_KEY
+  if (!key) return false
+  return req.headers.get('x-ct-test-key') === key
 }
 
-export default clerkMiddleware(async (auth, req: NextRequest) => {
-  // Test mode bypass — never active if CT_TEST_API_KEY not set
-  if (isTestMode(req)) {
-    const headers = new Headers(req.headers)
-    headers.set('x-tenant-id', '00000000-0000-0000-0000-000000000001')
-    return NextResponse.next({ request: { headers } })
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  if (isTestRequest(req)) {
+    const h = new Headers(req.headers)
+    h.set('x-user-id',   'user_test_local')
+    h.set('x-tenant-id', '00000000-0000-0000-0000-000000000001')
+    return NextResponse.next({ request: { headers: h } })
   }
 
-  if (isPublicRoute(req)) return NextResponse.next()
+  if (isPublic(pathname)) return NextResponse.next()
 
-  const { userId, orgId } = await auth()
-
-  if (!userId) {
-    // API routes return 401, UI routes redirect to login
-    if (req.nextUrl.pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
-    }
-    return NextResponse.redirect(new URL('/login', req.url))
+  const token = req.cookies.get(SESSION_COOKIE)?.value
+  if (!token) {
+    return isApi(pathname)
+      ? NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
+      : NextResponse.redirect(new URL('/login', req.url))
   }
 
-  const headers = new Headers(req.headers)
-  if (orgId) headers.set('x-tenant-id', orgId)
-  return NextResponse.next({ request: { headers } })
-})
+  const payload = await verifyJwt(token)
+  if (!payload?.sub || !payload.org) {
+    const res = isApi(pathname)
+      ? NextResponse.json({ error: 'Session expired' }, { status: 401 })
+      : NextResponse.redirect(new URL('/login', req.url))
+    res.cookies.delete(SESSION_COOKIE)
+    return res
+  }
+
+  const h = new Headers(req.headers)
+  h.set('x-user-id',   payload.sub)
+  h.set('x-tenant-id', payload.org as string)
+  return NextResponse.next({ request: { headers: h } })
+}
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
