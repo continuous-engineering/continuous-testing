@@ -36,10 +36,15 @@ export async function POST(req: Request) {
   let job: Record<string, unknown> | null = null
   try {
     await client.query('BEGIN')
-    await client.query(`SET LOCAL app.tenant_id = '${runner.tenant_id}'`)
+    if (runner.scope === 'hosted') {
+      // Hosted runners have no tenant — set the RLS bypass flag so they can see all tenants' jobs
+      await client.query(`SET LOCAL app.is_hosted_runner = 'true'`)
+    } else {
+      await client.query(`SET LOCAL app.tenant_id = '${runner.tenant_id}'`)
+    }
     const { rows } = await client.query(
       sqlFile('runners/claim-job'),
-      [runner.id, runner.tenant_id, runner.tags, runner.scope],
+      [runner.id, runner.tenant_id ?? null, runner.tags, runner.scope],
     )
     job = rows[0] ?? null
     await client.query('COMMIT')
@@ -53,10 +58,10 @@ export async function POST(req: Request) {
 
   if (!job) return new Response(null, { status: 204 })  // Nothing to claim
 
-  // Build full execution context for the runner
-  const runId = job.run_id as string
-  // Use the job's tenant_id — for hosted runners this may differ from runner.tenant_id
-  const tenantId = (job.tenant_id as string) || runner.tenant_id
+  // Build full execution context for the runner.
+  // ALWAYS use job.tenant_id — hosted runners have no tenant of their own.
+  const runId    = job.run_id   as string
+  const tenantId = job.tenant_id as string
 
   // Get run + pipeline + steps (all within tenant RLS context)
   const [run, pipeline, envVars] = await withTenant(tenantId, async (q) => {
