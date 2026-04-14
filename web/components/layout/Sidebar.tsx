@@ -19,32 +19,39 @@ const NAV: NavSection[] = [
   {
     title: 'Overview',
     items: [
-      { label: 'Dashboard',  href: '/' },
+      { label: 'Dashboard',   href: '/' },
       { label: 'Flaky Tests', href: '/flaky' },
     ],
   },
   {
     title: 'Testing',
     items: [
-      { label: 'Pipelines',   href: '/pipelines' },
-      { label: 'Runs',        href: '/runs' },
-      { label: 'Coverage',    href: '/coverage' },
+      { label: 'Projects',   href: '/projects' },
+      { label: 'Pipelines',  href: '/pipelines' },
+      { label: 'Runs',       href: '/runs' },
+      { label: 'Coverage',   href: '/coverage' },
+    ],
+  },
+  {
+    title: 'Import',
+    items: [
+      { label: 'API Spec / OpenAPI', href: '/import' },
     ],
   },
   {
     title: 'Issues',
     items: [
-      { label: 'Issues',      href: '/issues' },
+      { label: 'Issues',     href: '/issues' },
     ],
   },
   {
     title: 'Settings',
     items: [
-      { label: 'Runners',     href: '/settings/runners' },
-      { label: 'Secrets',     href: '/settings/secrets' },
+      { label: 'Runners',      href: '/settings/runners' },
+      { label: 'Secrets',      href: '/settings/secrets' },
       { label: 'Environments', href: '/settings/environments' },
       { label: 'Integrations', href: '/settings/integrations' },
-      { label: 'Team',        href: '/settings/team' },
+      { label: 'Team',         href: '/settings/team' },
     ],
   },
 ]
