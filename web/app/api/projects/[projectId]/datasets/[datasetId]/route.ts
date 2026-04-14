@@ -9,8 +9,8 @@ export async function GET(req: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenant()
     const { datasetId } = await params
-    const url = new URL(req.url)
-    const limit  = Math.min(Number(url.searchParams.get('limit')  ?? 100), 1000)
+    const url    = new URL(req.url)
+    const limit  = Math.min(Number(url.searchParams.get('limit')  ?? 500), 2000)
     const offset = Number(url.searchParams.get('offset') ?? 0)
 
     const [dataset, rows] = await withTenant(tenantId, async (q) => {
@@ -24,22 +24,34 @@ export async function GET(req: Request, { params }: Params) {
   } catch (e) { return handleError(e) }
 }
 
-// POST rows — append to existing dataset
-export async function POST(req: Request, { params }: Params) {
+export async function PATCH(req: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenant()
     const { datasetId } = await params
-    const { rows } = z.object({ rows: z.array(z.record(z.unknown())).min(1) }).parse(await req.json())
+    const body = z.object({
+      name:        z.string().min(1).max(100).optional(),
+      description: z.string().max(500).optional(),
+      schema_json: z.record(z.unknown()).optional(),
+    }).parse(await req.json())
 
-    const result = await withTenant(tenantId, async (q) => {
-      const ds = await q('datasets/get-by-id', [datasetId])
-      if (!ds.length) throw new Error('Not found')
-      const current = (ds[0] as Record<string, number>).row_count
-      await q('datasets/insert-rows', [datasetId, current, JSON.stringify(rows)])
-      const updated = await q('datasets/update-row-count', [datasetId])
-      return updated[0]
-    })
+    const rows = await withTenant(tenantId, (q) =>
+      q('datasets/update-schema', [
+        datasetId,
+        body.name        ?? null,
+        body.description ?? null,
+        body.schema_json ? JSON.stringify(body.schema_json) : null,
+      ]),
+    )
+    if (!rows.length) return err('Not found', 404)
+    return ok(rows[0])
+  } catch (e) { return handleError(e) }
+}
 
-    return ok(result)
+export async function DELETE(_req: Request, { params }: Params) {
+  try {
+    const { tenantId } = await getTenant()
+    const { datasetId } = await params
+    await withTenant(tenantId, (q) => q('datasets/delete', [datasetId]))
+    return ok({ deleted: true })
   } catch (e) { return handleError(e) }
 }

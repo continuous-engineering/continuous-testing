@@ -29,6 +29,7 @@ const NAV: NavSection[] = [
       { label: 'Projects',   href: '/projects' },
       { label: 'Pipelines',  href: '/pipelines' },
       { label: 'Runs',       href: '/runs' },
+      { label: 'Datasets',   href: '/datasets' },
       { label: 'Coverage',   href: '/coverage' },
     ],
   },
