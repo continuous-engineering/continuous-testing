@@ -210,3 +210,16 @@
 | 082 | ⬜ | Bug: middleware test-key bypass — runners/ must remain public (X-Runner-Token auth) | B15 | XS |
 | 083 | ⬜ | Bug: RLS test tenant — SET LOCAL must use correct UUID for test tenant | B15 | S |
 | 084 | ⬜ | Bug: runs/get-by-id needs tenant RLS context set before query | B15 | XS |
+
+---
+
+## OWN AUTH — REMOVE CLERK (BLOCKING — app shows blank page)
+
+| #   | Status | Task                                                                 | Bundle | Size |
+|-----|--------|----------------------------------------------------------------------|--------|------|
+| 085 | 🔄 | Remove @clerk/nextjs — replace with custom JWT auth (jose + bcrypt) | B16 | L |
+| 086 | 🔄 | DB: users + orgs + sessions + memberships tables (migration 010) | B16 | M |
+| 087 | 🔄 | Auth routes: POST /api/auth/signup, /login, /logout, /me | B16 | M |
+| 088 | 🔄 | Middleware: validate session cookie → inject tenant context (replaces clerkMiddleware) | B16 | M |
+| 089 | 🔄 | Login/signup UI — themed, no external components | B16 | M |
+| 090 | 🔄 | Org switcher + team invite — replaces Clerk org model | B16 | L |
