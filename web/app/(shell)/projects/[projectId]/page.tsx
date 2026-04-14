@@ -6,6 +6,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { DenseTable, type Column } from '@/components/data/DenseTable'
 import { StepStatusBadge, type StepStatus } from '@/components/domain/StepStatusBadge'
 
+type ProjectMeta = { name: string; description: string | null; owner: string | null; labels: string[] }
+
 type Pipeline = {
   id: string
   name: string
@@ -19,16 +21,21 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const router = useRouter()
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [showForm, setShowForm] = useState(false)
+  const [meta, setMeta]           = useState<ProjectMeta | null>(null)
+  const [loading, setLoading]     = useState(true)
+  const [creating, setCreating]   = useState(false)
+  const [newName, setNewName]     = useState('')
+  const [showForm, setShowForm]   = useState(false)
 
   const load = () => {
     fetch(`/api/projects/${projectId}/pipelines`)
       .then((r) => r.json())
       .then((d) => { setPipelines((d as { data: Pipeline[] }).data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
+    fetch(`/api/projects/${projectId}`)
+      .then(r => r.json())
+      .then((d: { data: ProjectMeta }) => setMeta(d.data))
+      .catch(() => {})
   }
 
   useEffect(load, [projectId])
@@ -69,15 +76,40 @@ export default function ProjectPage() {
 
   return (
     <div className="p-6 flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-title" style={{ color: 'var(--ct-text-1)' }}>Pipelines</h1>
-        <button
-          className="text-label px-3 py-1.5 rounded-md font-medium"
-          style={{ background: 'var(--ct-accent-500)', color: '#fff' }}
-          onClick={() => setShowForm(true)}
-        >
-          + New pipeline
-        </button>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-title" style={{ color: 'var(--ct-text-1)' }}>{meta?.name ?? 'Pipelines'}</h1>
+          {meta?.description && (
+            <p className="text-body mt-1 max-w-lg" style={{ color: 'var(--ct-text-2)' }}>{meta.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-1">
+            {meta?.owner && (
+              <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>👤 {meta.owner}</span>
+            )}
+            {meta?.labels?.map(l => (
+              <span key={l} className="text-caption px-1.5 py-0.5 rounded-full border"
+                style={{ borderColor: 'var(--ct-accent-500)', color: 'var(--ct-accent-400)', background: 'rgba(16,185,129,0.08)', fontSize: 11 }}>
+                {l}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/projects/${projectId}/settings`)}
+            className="text-label px-3 py-1.5 rounded-md border"
+            style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}
+          >
+            Settings
+          </button>
+          <button
+            className="text-label px-3 py-1.5 rounded-md font-medium"
+            style={{ background: 'var(--ct-accent-500)', color: '#fff' }}
+            onClick={() => setShowForm(true)}
+          >
+            + New pipeline
+          </button>
+        </div>
       </div>
 
       {/* Inline create form */}
