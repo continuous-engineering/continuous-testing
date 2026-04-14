@@ -57,10 +57,25 @@ export async function POST(req: Request) {
     const runner = rows[0] ?? null
     if (!runner) return err('Invalid runner token', 401)
 
-    const tenantId = runner.tenant_id
     const body = Body.parse(await req.json())
 
+    // Hosted runners have tenant_id = NULL — resolve tenant from the run itself.
+    // Self-hosted runners always match their own tenant.
+    let tenantId: string = runner.tenant_id
+    if (!tenantId) {
+      const runRows = await raw<{ tenant_id: string }>(
+        `SELECT tenant_id FROM runs WHERE id = $1 LIMIT 1`,
+        [body.runId],
+      )
+      tenantId = runRows[0]?.tenant_id ?? ''
+    }
+    if (!tenantId) return err('Cannot resolve tenant for run', 500)
+
     if (body.type === 'step_result') {
+      // Skip the runner's synthetic "run started" signal (nil step UUID — not a real step)
+      const NIL_STEP = '00000000-0000-0000-0000-000000000000'
+      if (body.stepId === NIL_STEP) return ok({ received: true })
+
       await withTenant(tenantId, (q) =>
         q('runs/upsert-result', [
           body.runId, body.stepId, body.status,

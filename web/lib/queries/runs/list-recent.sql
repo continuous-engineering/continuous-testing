@@ -21,6 +21,6 @@ JOIN pipelines p    ON p.id    = r.pipeline_id
 JOIN projects  proj ON proj.id = p.project_id
 WHERE r.tenant_id = current_setting('app.tenant_id', true)::uuid
   AND ($1::uuid IS NULL OR p.project_id = $1)
-  AND ($2::text  IS NULL OR r.status    = $2::step_status)
+  AND ($2::text  IS NULL OR r.status    = $2::run_status)
 ORDER BY r.created_at DESC
 LIMIT 50;

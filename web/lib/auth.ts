@@ -23,7 +23,7 @@ type SessionPayload = JWTPayload & { sub: string; org: string; jti: string }
 
 // ── Test-mode bypass ──────────────────────────────────────────────────────
 const TEST_TENANT = '00000000-0000-0000-0000-000000000001'
-const TEST_USER   = 'user_test_local'
+const TEST_USER   = '00000000-0000-0000-0000-000000000099'  // valid UUID for test bypass
 
 async function isTestRequest(): Promise<boolean> {
   const key = process.env.CT_TEST_API_KEY
