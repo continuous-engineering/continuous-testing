@@ -47,12 +47,15 @@ export default function PipelinePage() {
   const { editingStepId, openStepEditor, closeStepEditor } = useUiStore()
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
-  const [run, setRun]           = useState<RunState | null>(null)
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState<string | null>(null)
-  const [specs, setSpecs]       = useState<SpecSummary[]>([])
-  const [zenMode, setZenMode]   = useState(false)
-  const eventSourceRef          = useRef<EventSource | null>(null)
+  const [run, setRun]               = useState<RunState | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [specs, setSpecs]           = useState<SpecSummary[]>([])
+  const [zenMode, setZenMode]       = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [showRunModal, setShowRunModal] = useState(false)
+  const [environments, setEnvironments] = useState<{ id: string; name: string; is_default: boolean }[]>([])
+  const eventSourceRef              = useRef<EventSource | null>(null)
 
   const reload = useCallback(() =>
     fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`)
@@ -66,6 +69,8 @@ export default function PipelinePage() {
       reload(),
       fetch(`/api/projects/${projectId}/specs`).then(r => r.json())
         .then((d: { data: SpecSummary[] }) => setSpecs(d.data ?? [])).catch(() => {}),
+      fetch(`/api/projects/${projectId}/environments`).then(r => r.json())
+        .then((d: { data: typeof environments }) => setEnvironments(d.data ?? [])).catch(() => {}),
     ]).finally(() => setLoading(false))
   }, [projectId, pipelineId])
 
@@ -103,10 +108,11 @@ export default function PipelinePage() {
     }
   }
 
-  async function triggerRun() {
+  async function triggerRun(environmentId?: string) {
+    setShowRunModal(false)
     const res  = await fetch(`/api/projects/${projectId}/pipelines/${pipelineId}/runs`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trigger: 'manual' }),
+      body: JSON.stringify({ trigger: 'manual', environment_id: environmentId || undefined }),
     })
     const data = await res.json() as { data: { runId: string } }
     setRun({ runId: data.data.runId, status: 'pending', stepResults: {}, passed: 0, failed: 0, skipped: 0, running: 0 })
@@ -159,6 +165,12 @@ export default function PipelinePage() {
                 {totalSteps} step{totalSteps !== 1 ? 's' : ''}
               </span>
             </div>
+            <button onClick={() => setShowSettings(true)}
+              className="text-label px-2 py-1 rounded border transition-colors"
+              style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}
+              title="Pipeline settings">
+              ⚙
+            </button>
             <a
               href={`/api/projects/${projectId}/pipelines/${pipelineId}/export`}
               download
@@ -168,7 +180,9 @@ export default function PipelinePage() {
             >
               ↓ YAML
             </a>
-            <button onClick={triggerRun} disabled={run?.status === 'running'}
+            <button
+              onClick={() => environments.length > 0 ? setShowRunModal(true) : triggerRun()}
+              disabled={run?.status === 'running'}
               className="text-label px-3 py-1 rounded font-medium disabled:opacity-50 flex-shrink-0"
               style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
               {run?.status === 'running' ? 'Running…' : '▶ Run'}
@@ -227,6 +241,26 @@ export default function PipelinePage() {
         </div>
       )}
 
+      {/* ── Run modal — environment + confirmation ── */}
+      {showRunModal && (
+        <RunModal
+          environments={environments}
+          onRun={(envId) => triggerRun(envId)}
+          onClose={() => setShowRunModal(false)}
+        />
+      )}
+
+      {/* ── Pipeline settings panel ── */}
+      {showSettings && pipeline && (
+        <PipelineSettingsPanel
+          pipeline={pipeline}
+          projectId={projectId}
+          pipelineId={pipelineId}
+          onClose={() => setShowSettings(false)}
+          onSaved={() => { setShowSettings(false); reload() }}
+        />
+      )}
+
       {/* ── Step editor (half-screen by default, zen = full screen overlay) ── */}
       {editingStepId && editingStep && (
         <StepEditorDrawer
@@ -240,6 +274,170 @@ export default function PipelinePage() {
           onSaved={reload}
         />
       )}
+    </div>
+  )
+}
+
+// ── Run Modal ────────────────────────────────────────────────────────────────
+
+function RunModal({ environments, onRun, onClose }: {
+  environments: { id: string; name: string; is_default: boolean }[]
+  onRun: (envId?: string) => void
+  onClose: () => void
+}) {
+  const defaultEnv = environments.find(e => e.is_default) ?? environments[0]
+  const [envId, setEnvId] = useState(defaultEnv?.id ?? '')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}>
+      <div className="rounded-lg border p-6 flex flex-col gap-4 w-80"
+        style={{ background: 'var(--ct-surface)', borderColor: 'var(--ct-border)' }}
+        onClick={e => e.stopPropagation()}>
+        <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>Trigger run</h2>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Environment</label>
+          <select value={envId} onChange={e => setEnvId(e.target.value)}
+            className="text-body px-3 py-2 rounded-md border"
+            style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)' }}>
+            <option value="">No environment</option>
+            {environments.map(e => (
+              <option key={e.id} value={e.id}>{e.name}{e.is_default ? ' (default)' : ''}</option>
+            ))}
+          </select>
+          <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+            Environment variables are injected at run time. Secrets referenced in steps are decrypted on the runner.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => onRun(envId || undefined)}
+            className="text-label px-4 py-2 rounded-md flex-1"
+            style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
+            ▶ Run
+          </button>
+          <button onClick={onClose}
+            className="text-label px-3 py-2 rounded-md border"
+            style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Pipeline Settings Panel ──────────────────────────────────────────────────
+
+function PipelineSettingsPanel({ pipeline, projectId, pipelineId, onClose, onSaved }: {
+  pipeline: Pipeline; projectId: string; pipelineId: string
+  onClose: () => void; onSaved: () => void
+}) {
+  const [name,        setName]        = useState(pipeline.name)
+  const [description, setDescription] = useState(pipeline.description ?? '')
+  const [runsOnText,  setRunsOnText]  = useState(pipeline.runs_on.join(', '))
+  const [tagsText,    setTagsText]    = useState((pipeline as Record<string,unknown>).tags as string[] | undefined ? ((pipeline as Record<string,unknown>).tags as string[]).join(', ') : '')
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState('')
+  const [deleting,    setDeleting]    = useState(false)
+
+  async function save() {
+    setSaving(true); setError('')
+    const res = await fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim() || undefined,
+        description: description || undefined,
+        runs_on: runsOnText.split(',').map(t => t.trim()).filter(Boolean),
+        tags:    tagsText.split(',').map(t => t.trim()).filter(Boolean),
+      }),
+    })
+    setSaving(false)
+    if (!res.ok) { const d = await res.json() as { error?: string }; setError(d.error ?? 'Save failed'); return }
+    onSaved()
+  }
+
+  async function deletePipeline() {
+    if (!confirm(`Delete pipeline "${pipeline.name}"? All run history will be lost.`)) return
+    setDeleting(true)
+    await fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`, { method: 'DELETE' })
+    window.location.href = `/projects/${projectId}`
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)', outline: 'none',
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}>
+      <div className="rounded-lg border p-6 flex flex-col gap-4 w-full max-w-lg mx-4"
+        style={{ background: 'var(--ct-surface)', borderColor: 'var(--ct-border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>Pipeline settings</h2>
+          <button onClick={onClose} style={{ color: 'var(--ct-text-3)' }}>✕</button>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Name</label>
+          <input value={name} onChange={e => setName(e.target.value)}
+            className="text-body px-3 py-2 rounded-md border"
+            style={inputStyle} />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Description</label>
+          <textarea value={description} onChange={e => setDescription(e.target.value)}
+            rows={2} placeholder="What does this pipeline test?"
+            className="text-body px-3 py-2 rounded-md border resize-none"
+            style={inputStyle} />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+            Runner tags <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>comma-separated — controls which runner picks this up</span>
+          </label>
+          <input value={runsOnText} onChange={e => setRunsOnText(e.target.value)}
+            placeholder="hosted"
+            className="text-body px-3 py-2 rounded-md border font-mono text-sm"
+            style={inputStyle} />
+          <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+            hosted = platform runners. Add custom tags to route to specific self-hosted runners.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+            Labels <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>comma-separated — for organisation only</span>
+          </label>
+          <input value={tagsText} onChange={e => setTagsText(e.target.value)}
+            placeholder="smoke, regression, nightly"
+            className="text-body px-3 py-2 rounded-md border"
+            style={inputStyle} />
+        </div>
+
+        {error && <p className="text-caption" style={{ color: 'var(--ct-fail)' }}>{error}</p>}
+
+        <div className="flex items-center gap-2 pt-1">
+          <button onClick={save} disabled={saving}
+            className="text-label px-4 py-2 rounded-md disabled:opacity-50"
+            style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={onClose}
+            className="text-label px-3 py-2 rounded-md border"
+            style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}>
+            Cancel
+          </button>
+          <button onClick={deletePipeline} disabled={deleting}
+            className="text-label px-3 py-2 rounded-md ml-auto"
+            style={{ color: 'var(--ct-fail)' }}>
+            {deleting ? 'Deleting…' : 'Delete pipeline'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
