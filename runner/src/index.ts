@@ -66,11 +66,19 @@ type JobContext = {
   jobId: string
   runId: string
   dag: StepDef[]
-  context: { env: Record<string, string>; secrets: Record<string, string>; mockDb?: Record<string, unknown> }
+  context: {
+    env:     Record<string, string>
+    secrets: Record<string, string>
+    row?:    Record<string, unknown>   // dataset row data — {{row.key}} in step configs
+    mockDb?: Record<string, unknown>
+  }
 }
 
 async function handleJob(job: JobContext, runnerId: string, runnerScope: string): Promise<void> {
   console.log(`[runner] claimed job ${job.jobId} for run ${job.runId}`)
+  if (job.context.row && Object.keys(job.context.row).length > 0) {
+    console.log(`[runner] dataset row: ${JSON.stringify(job.context.row)}`)
+  }
   const runStart = Date.now()
 
   // Start mock server if db seed provided
@@ -81,13 +89,14 @@ async function handleJob(job: JobContext, runnerId: string, runnerScope: string)
   }
 
   const runCtx: RunContext = {
-    runId: job.runId,
+    runId:    job.runId,
     tenantId: '',    // not needed client-side
     runnerId,
     env:     { ...job.context.env, ...(mock ? { MOCK_BASE_URL: mock.baseUrl } : {}) },
     secrets: job.context.secrets,
-    mockPort: mock?.port,
-    apiBaseUrl: API_BASE,
+    row:     job.context.row ?? {},
+    mockPort:    mock?.port,
+    apiBaseUrl:  API_BASE,
     runnerToken: RUNNER_TOKEN,
   }
 

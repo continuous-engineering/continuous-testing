@@ -41,7 +41,7 @@ export async function runUiStep(
   runCtx: RunContext,
 ): Promise<StepResult> {
   const startedAt = new Date()
-  const rawConfig = interpolate(step.config, ctx, runCtx.env, runCtx.secrets) as Record<string, unknown>
+  const rawConfig = interpolate(step.config, ctx, runCtx.env, runCtx.secrets, runCtx.row) as Record<string, unknown>
   const config = UiConfig.parse(rawConfig)
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ct-run-${runCtx.runId}-`))
@@ -113,7 +113,7 @@ async function executeAction(
 ): Promise<void> {
   switch (action.type) {
     case 'navigate': {
-      const url = String(interpolate(action.url, ctx, runCtx.env, runCtx.secrets))
+      const url = String(interpolate(action.url, ctx, runCtx.env, runCtx.secrets, runCtx.row))
       await page.goto(url, { waitUntil: 'networkidle' })
       break
     }
@@ -123,7 +123,7 @@ async function executeAction(
       break
     }
     case 'fill': {
-      const val = String(interpolate(action.value, ctx, runCtx.env, runCtx.secrets))
+      const val = String(interpolate(action.value, ctx, runCtx.env, runCtx.secrets, runCtx.row))
       await page.locator(action.selector).fill(val)
       break
     }

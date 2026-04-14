@@ -24,7 +24,7 @@ export async function runAiStep(
   runCtx: RunContext,
 ): Promise<StepResult> {
   const startedAt = new Date()
-  const rawConfig = interpolate(step.config, ctx, runCtx.env, runCtx.secrets) as Record<string, unknown>
+  const rawConfig = interpolate(step.config, ctx, runCtx.env, runCtx.secrets, runCtx.row) as Record<string, unknown>
   const config = AiConfig.parse(rawConfig)
 
   let agentResponse = ''
@@ -38,7 +38,7 @@ export async function runAiStep(
       const res = await fetch(config.agent_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(interpolate(body, ctx, runCtx.env, runCtx.secrets)),
+        body: JSON.stringify(interpolate(body, ctx, runCtx.env, runCtx.secrets, runCtx.row)),
       })
       latencyMs = Date.now() - start
       const json = await res.json() as Record<string, unknown>

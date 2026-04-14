@@ -55,6 +55,7 @@ export default function PipelinePage() {
   const [showSettings, setShowSettings] = useState(false)
   const [showRunModal, setShowRunModal] = useState(false)
   const [environments, setEnvironments] = useState<{ id: string; name: string; is_default: boolean }[]>([])
+  const [datasets,     setDatasets]     = useState<{ id: string; name: string; row_count: number }[]>([])
   const eventSourceRef              = useRef<EventSource | null>(null)
 
   const reload = useCallback(() =>
@@ -71,6 +72,8 @@ export default function PipelinePage() {
         .then((d: { data: SpecSummary[] }) => setSpecs(d.data ?? [])).catch(() => {}),
       fetch(`/api/projects/${projectId}/environments`).then(r => r.json())
         .then((d: { data: typeof environments }) => setEnvironments(d.data ?? [])).catch(() => {}),
+      fetch(`/api/projects/${projectId}/datasets`).then(r => r.json())
+        .then((d: { data: typeof datasets }) => setDatasets(d.data ?? [])).catch(() => {}),
     ]).finally(() => setLoading(false))
   }, [projectId, pipelineId])
 
@@ -108,15 +111,26 @@ export default function PipelinePage() {
     }
   }
 
-  async function triggerRun(environmentId?: string) {
+  async function triggerRun(opts: { environmentId?: string; datasetId?: string }) {
     setShowRunModal(false)
+    const body: Record<string, string> = { trigger: 'manual' }
+    if (opts.environmentId) body.environment_id = opts.environmentId
+    if (opts.datasetId)     body.dataset_id     = opts.datasetId
+
     const res  = await fetch(`/api/projects/${projectId}/pipelines/${pipelineId}/runs`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trigger: 'manual', environment_id: environmentId || undefined }),
+      body: JSON.stringify(body),
     })
-    const data = await res.json() as { data: { runId: string } }
-    setRun({ runId: data.data.runId, status: 'pending', stepResults: {}, passed: 0, failed: 0, skipped: 0, running: 0 })
-    subscribeToRun(data.data.runId)
+    const data = await res.json() as { data: { runId?: string; batchId?: string; runs?: { runId: string }[]; total?: number } }
+
+    if (data.data.batchId) {
+      // Dataset batch — navigate to runs list (N runs created)
+      window.location.href = '/runs'
+    } else if (data.data.runId) {
+      // Single run — subscribe to SSE
+      setRun({ runId: data.data.runId, status: 'pending', stepResults: {}, passed: 0, failed: 0, skipped: 0, running: 0 })
+      subscribeToRun(data.data.runId)
+    }
   }
 
   async function deleteStep(stepId: string) {
@@ -181,7 +195,9 @@ export default function PipelinePage() {
               ↓ YAML
             </a>
             <button
-              onClick={() => environments.length > 0 ? setShowRunModal(true) : triggerRun()}
+              onClick={() => (environments.length > 0 || datasets.length > 0)
+                ? setShowRunModal(true)
+                : triggerRun({})}
               disabled={run?.status === 'running'}
               className="text-label px-3 py-1 rounded font-medium disabled:opacity-50 flex-shrink-0"
               style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
@@ -245,7 +261,8 @@ export default function PipelinePage() {
       {showRunModal && (
         <RunModal
           environments={environments}
-          onRun={(envId) => triggerRun(envId)}
+          datasets={datasets}
+          onRun={(opts) => triggerRun(opts)}
           onClose={() => setShowRunModal(false)}
         />
       )}
@@ -280,41 +297,96 @@ export default function PipelinePage() {
 
 // ── Run Modal ────────────────────────────────────────────────────────────────
 
-function RunModal({ environments, onRun, onClose }: {
+function RunModal({ environments, datasets, onRun, onClose }: {
   environments: { id: string; name: string; is_default: boolean }[]
-  onRun: (envId?: string) => void
+  datasets:     { id: string; name: string; row_count: number }[]
+  onRun: (opts: { environmentId?: string; datasetId?: string }) => void
   onClose: () => void
 }) {
   const defaultEnv = environments.find(e => e.is_default) ?? environments[0]
-  const [envId, setEnvId] = useState(defaultEnv?.id ?? '')
+  const [envId,     setEnvId]     = useState(defaultEnv?.id ?? '')
+  const [datasetId, setDatasetId] = useState('')
+  const selectedDataset = datasets.find(d => d.id === datasetId)
+
+  const selStyle: React.CSSProperties = {
+    background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)',
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.5)' }}
       onClick={onClose}>
-      <div className="rounded-lg border p-6 flex flex-col gap-4 w-80"
+      <div className="rounded-lg border p-6 flex flex-col gap-4 w-96"
         style={{ background: 'var(--ct-surface)', borderColor: 'var(--ct-border)' }}
         onClick={e => e.stopPropagation()}>
         <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>Trigger run</h2>
+
+        {/* Environment */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Environment</label>
-          <select value={envId} onChange={e => setEnvId(e.target.value)}
-            className="text-body px-3 py-2 rounded-md border"
-            style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)' }}>
-            <option value="">No environment</option>
-            {environments.map(e => (
-              <option key={e.id} value={e.id}>{e.name}{e.is_default ? ' (default)' : ''}</option>
-            ))}
-          </select>
-          <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
-            Environment variables are injected at run time. Secrets referenced in steps are decrypted on the runner.
-          </p>
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+            Environment <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{'— provides {{env.KEY}}'}</span>
+          </label>
+          {environments.length > 0 ? (
+            <select value={envId} onChange={e => setEnvId(e.target.value)}
+              className="text-body px-3 py-2 rounded-md border" style={selStyle}>
+              <option value="">No environment</option>
+              {environments.map(e => (
+                <option key={e.id} value={e.id}>{e.name}{e.is_default ? ' (default)' : ''}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+              No environments configured. Go to Settings → Environments to add one.
+            </p>
+          )}
         </div>
+
+        {/* Dataset */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+            Dataset <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{'— provides {{row.KEY}}'}</span>
+          </label>
+          {datasets.length > 0 ? (
+            <>
+              <select value={datasetId} onChange={e => setDatasetId(e.target.value)}
+                className="text-body px-3 py-2 rounded-md border" style={selStyle}>
+                <option value="">Single run — no dataset</option>
+                {datasets.map(d => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.row_count} rows)</option>
+                ))}
+              </select>
+              {selectedDataset && (
+                <div className="rounded-md p-3 flex items-start gap-2"
+                  style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  <span style={{ color: 'var(--ct-accent-400)', fontSize: 18, lineHeight: 1 }}>⊞</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-label" style={{ color: 'var(--ct-accent-400)' }}>
+                      {selectedDataset.row_count} runs will be created
+                    </span>
+                    <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+                      One run per row. Each run gets its row injected as{' '}
+                      <code style={{ fontSize: 10 }}>{'{{row.column}}'}</code> in step configs.
+                      All runs share a batch ID — visible together in the Runs page.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+              No datasets in this project. Go to Datasets to create one.
+            </p>
+          )}
+        </div>
+
         <div className="flex gap-2">
-          <button onClick={() => onRun(envId || undefined)}
-            className="text-label px-4 py-2 rounded-md flex-1"
+          <button
+            onClick={() => onRun({ environmentId: envId || undefined, datasetId: datasetId || undefined })}
+            className="text-label px-4 py-2 rounded-md flex-1 font-medium"
             style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
-            ▶ Run
+            {selectedDataset
+              ? `▶ Run × ${selectedDataset.row_count} rows`
+              : '▶ Run'}
           </button>
           <button onClick={onClose}
             className="text-label px-3 py-2 rounded-md border"

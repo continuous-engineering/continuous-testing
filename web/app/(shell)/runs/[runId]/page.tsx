@@ -21,6 +21,7 @@ type RunDetail = {
   started_at: string; completed_at: string | null; runner_minutes: number | null
   total_steps: number; passed_steps: number; failed_steps: number; skipped_steps: number
   pipeline_id: string; pipeline_name: string; project_id: string; project_name: string
+  batch_id: string | null; row_index: number | null; row_data: Record<string, unknown> | null
   step_results: StepResult[]
 }
 
@@ -98,6 +99,12 @@ export default function RunDetailPage() {
               <span className="text-heading font-semibold" style={{ color: 'var(--ct-text-1)' }}>
                 {run.pipeline_name}
               </span>
+              {run.batch_id && (
+                <span className="text-caption px-2 py-0.5 rounded flex-shrink-0"
+                  style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--ct-accent-400)', fontSize: 11 }}>
+                  ⊞ Row #{(run.row_index ?? 0) + 1}
+                </span>
+              )}
             </div>
             <span className="text-caption font-mono" style={{ color: 'var(--ct-text-3)' }}>{run.id}</span>
           </div>
@@ -121,6 +128,19 @@ export default function RunDetailPage() {
           skipped={run.skipped_steps} running={0}
           total={run.total_steps}
         />
+
+        {/* Row data (dataset run) */}
+        {run.row_data && Object.keys(run.row_data).length > 0 && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {Object.entries(run.row_data).map(([k, v]) => (
+              <span key={k} className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+                <span className="font-mono" style={{ color: 'var(--ct-accent-400)' }}>row.{k}</span>
+                {' = '}
+                <span style={{ color: 'var(--ct-text-2)' }}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="flex gap-4 text-caption">
           <span style={{ color: 'var(--ct-pass)' }}>✓ {run.passed_steps} passed</span>

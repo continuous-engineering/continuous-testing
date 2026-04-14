@@ -96,11 +96,18 @@ export async function POST(req: Request) {
     }
   }
 
+  // Row data from dataset (if this is a dataset run)
+  const rowData = run.row_data as Record<string, unknown> | null ?? null
+
   return ok({
     jobId:    job.id,
     runId,
     dag:      pipeline.steps,
-    context: { env: envVars, secrets },
+    context: {
+      env:     envVars,
+      secrets,
+      row:     rowData ?? {},   // {{row.email}}, {{row.password}}, etc.
+    },
     // secrets decrypted in this response — runner holds in memory only
   })
 }

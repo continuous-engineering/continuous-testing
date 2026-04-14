@@ -14,14 +14,15 @@ export type StepDef = {
 }
 
 export type RunContext = {
-  runId: string
+  runId:    string
   tenantId: string
   runnerId: string
-  env: Record<string, string>
+  env:     Record<string, string>
   secrets: Record<string, string>
-  mockPort?: number     // json-server port for this run
-  apiBaseUrl: string    // CT SaaS API base URL
-  runnerToken: string   // for posting results back
+  row:     Record<string, unknown>  // dataset row — access as {{row.email}} etc. in step configs
+  mockPort?:   number       // json-server port for this run
+  apiBaseUrl:  string       // CT SaaS API base URL
+  runnerToken: string       // for posting results back
 }
 
 export type AssertionResult = {
