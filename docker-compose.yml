@@ -51,16 +51,20 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL:                    ${DATABASE_URL}
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-      CLERK_SECRET_KEY:                ${CLERK_SECRET_KEY}
       ANTHROPIC_API_KEY:               ${ANTHROPIC_API_KEY}
       SECRETS_MASTER_KEY:              ${SECRETS_MASTER_KEY}
       NEXT_PUBLIC_APP_URL:             ${NEXT_PUBLIC_APP_URL:-http://localhost:8080}
       CT_TEST_API_KEY:                 ${CT_TEST_API_KEY:-ct-test-api-key-local-dev-only}
+      AUTH_SECRET:                     ${AUTH_SECRET:-dev-only-change-me-in-production-min-32-chars!}
       NODE_ENV:                        production
+    volumes:
+      # Mount SQL queries as a volume — changes take effect on container restart, no rebuild needed
+      - ./web/lib/queries:/app/lib/queries:ro
+      # Mount migrations for reference (not auto-run)
+      - ./web/migrations:/app/migrations:ro
     # NOT exposed — only reachable via caddy inside ct-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/',r=>r.statusCode<500?process.exit(0):process.exit(1)).on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 10
