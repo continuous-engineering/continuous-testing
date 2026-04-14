@@ -1,26 +1,206 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Shared with web app — continuous.testing brand tokens */
+/* ─── continuous.testing — Design Tokens ─────────────────────────────────────
+   Family DNA: dark navy, Inter, backdrop blur, CSS custom props
+   Shared with: qntmchain.ai (#09090f base), continuous.engineering (amber/indigo)
+   This product: Emerald accent, dot grid, glow depth, AI-era SaaS
+   ────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --ct-accent:   #10b981;
-  --ct-accent-d: #059669;
-  --ct-bg:       #09090f;
-  --ct-surface:  #111118;
-  --ct-border:   #2a2a3a;
-  --ct-text-1:   #f0f0f6;
-  --ct-text-2:   #8b8ba8;
-  --ct-text-3:   #52526a;
+  --bg:          #09090f;
+  --bg-alt:      #0d0d16;
+  --surface:     #111119;
+  --surface-2:   #17172a;
+  --border:      #1e1e2e;
+  --border-up:   #2a2a3a;
 
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --accent:             #10b981;
+  --accent-bright:      #34d399;
+  --accent-dim:         #059669;
+  --accent-glow:        rgba(16,185,129,0.15);
+  --accent-glow-strong: rgba(16,185,129,0.30);
+
+  --pass:    #10b981;
+  --fail:    #f43f5e;
+  --flaky:   #f59e0b;
+  --running: #0ea5e9;
+  --skipped: #64748b;
+
+  --text-1: #f0f0f6;
+  --text-2: #8b8ba8;
+  --text-3: #52526a;
+
+  --font:      'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t:    0.2s var(--ease);
+
+  --radius:    8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
-  font-family: var(--font-sans);
-  background: var(--ct-bg);
-  color: var(--ct-text-1);
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-1);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
 
-body { margin: 0; }
+body { margin: 0; min-height: 100vh; }
+code, kbd, pre { font-family: var(--font-mono); }
+
+/* ─── Background — dot grid (family pattern from continuous.engineering) ─── */
+.bg-dots {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ─── Glow blobs ─────────────────────────────────────────────────────────── */
+.glow-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-blob-emerald { background: radial-gradient(circle, rgba(16,185,129,0.14) 0%, transparent 70%); }
+.glow-blob-violet  { background: radial-gradient(circle, rgba(124,58,237,0.10) 0%, transparent 70%); }
+.glow-blob-indigo  { background: radial-gradient(circle, rgba(99,102,241,0.10) 0%, transparent 70%); }
+
+/* ─── Type scale ──────────────────────────────────────────────────────────── */
+.t-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.t-display { font-size: clamp(42px,6vw,76px); font-weight: 800; line-height: 1.04; letter-spacing: -0.03em; }
+.t-title   { font-size: clamp(28px,4vw,44px); font-weight: 700; line-height: 1.12; letter-spacing: -0.02em; }
+.t-heading { font-size: 20px; font-weight: 600; line-height: 1.4; }
+.t-body    { font-size: 16px; line-height: 1.75; color: var(--text-2); }
+.t-small   { font-size: 14px; line-height: 1.6; color: var(--text-2); }
+
+/* Split brand — family pattern (continuous · testing) */
+.brand-ct .ct-continuous { color: var(--accent); }
+.brand-ct .ct-dot        { color: var(--text-3); }
+.brand-ct .ct-testing    { color: var(--text-1); }
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 24px; border-radius: var(--radius);
+  font-size: 15px; font-weight: 600; font-family: var(--font);
+  cursor: pointer; border: none; text-decoration: none;
+  transition: transform var(--t), box-shadow var(--t), background var(--t), border-color var(--t), color var(--t);
+  white-space: nowrap; position: relative; overflow: hidden;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 28px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 48px var(--accent-glow-strong), inset 0 1px 0 rgba(255,255,255,0.2);
+  background: var(--accent-bright);
+}
+.btn-ghost {
+  background: transparent; color: var(--text-1);
+  border: 1px solid var(--border-up);
+}
+.btn-ghost:hover {
+  border-color: rgba(16,185,129,0.5);
+  color: var(--accent);
+  background: var(--accent-glow);
+  transform: translateY(-1px);
+}
+.btn-lg { padding: 16px 36px; font-size: 16px; border-radius: var(--radius-lg); }
+
+/* ─── Nav ─────────────────────────────────────────────────────────────────── */
+.site-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 clamp(20px,5vw,72px); height: 60px;
+  transition: background var(--t), border-color var(--t), backdrop-filter var(--t);
+  border-bottom: 1px solid transparent;
+}
+.site-nav.scrolled {
+  background: rgba(9,9,15,0.82);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom-color: var(--border);
+}
+
+/* ─── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--t), box-shadow var(--t), transform var(--t);
+}
+.card:hover { border-color: var(--border-up); }
+.card-glow:hover {
+  border-color: rgba(16,185,129,0.28);
+  box-shadow: 0 0 48px rgba(16,185,129,0.08);
+}
+.card-hover:hover { transform: translateY(-3px); }
+
+/* ─── Step type badges ────────────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.badge-api  { background: rgba(14,165,233,0.12); color: #38bdf8; border: 1px solid rgba(14,165,233,0.2); }
+.badge-ui   { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+.badge-ai   { background: rgba(16,185,129,0.12); color: #34d399;  border: 1px solid rgba(16,185,129,0.2); }
+.badge-new  { background: rgba(16,185,129,0.12); color: #34d399;  border: 1px solid rgba(16,185,129,0.3); font-size: 10px; padding: 2px 8px; }
+
+/* Status dots */
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot-pass    { background: var(--pass); }
+.dot-fail    { background: var(--fail); }
+.dot-flaky   { background: var(--flaky); }
+.dot-running { background: var(--running); animation: pulse-glow 1.4s ease-in-out infinite; }
+
+/* ─── Sections ────────────────────────────────────────────────────────────── */
+.section { padding: clamp(72px,10vw,128px) clamp(20px,5vw,72px); }
+.container      { max-width: 1200px; margin: 0 auto; }
+.container-sm   { max-width: 800px;  margin: 0 auto; }
+.container-full { max-width: 1400px; margin: 0 auto; }
+
+/* ─── Gradient text ───────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 50%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-glow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50%      { box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+}
+@keyframes step-appear {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes float {
+  0%,100% { transform: translateY(0px); }
+  50%      { transform: translateY(-10px); }
+}
+@keyframes terminal-cursor {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+.anim-fade-up   { animation: fade-up 0.65s var(--ease) both; }
+.anim-delay-1   { animation-delay: 0.1s; }
+.anim-delay-2   { animation-delay: 0.2s; }
+.anim-delay-3   { animation-delay: 0.3s; }
+.anim-delay-4   { animation-delay: 0.45s; }
+.anim-float     { animation: float 5s ease-in-out infinite; }
