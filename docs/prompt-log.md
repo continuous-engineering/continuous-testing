@@ -27,3 +27,8 @@ How about the planned feature to implement using the phi? Is it already built, i
 /arch-onboard — use as described into an electron app. Review with proper settings and all. Make it a Pure native Electron.
 
 ---
+
+## 2026-04-14 06:01:13
+We are running the current project via docker containers. I want to review entire app - if there are any more templates/todos/mocks or not yet implemented features. And do a review using a role - evaluate various roles using this application, and their multiple journeys (Document these journeys), and review the app walking wearing that role. Document the issues found.
+
+---

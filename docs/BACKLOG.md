@@ -168,8 +168,8 @@
 | 061 | ✅ | Runner management UI — list, register (token copy-on-create), tags, last-seen, revoke | B12 | M |
 | 062 | ✅ | Secrets management UI — list, create, update, value never shown, referenced-by pipelines | B12 | M |
 | 063 | ✅ | Environment management UI — profiles, variable editor, active env, diff between envs | B12 | M |
-| 064 | ✅ | Team management UI — invite by email, Admin/Member/Viewer roles, remove | B12 | M |
-| 065 | ✅ | Integration settings UI — Jira/GitHub/Linear OAuth config, test connection, connection health | B12 | M |
+| 064 | ⬜ | Team management UI — invite by email, Admin/Member/Viewer roles, remove | B12 | M |
+| 065 | ⬜ | Integration settings UI — Jira/GitHub/Linear OAuth config, test connection, connection health | B12 | M |
 | 066 | ✅ | Notification settings UI — event × channel matrix, per-pipeline override, throttle config | B12 | M |
 
 ---
@@ -213,13 +213,54 @@
 
 ---
 
+## APP REVIEW FIXES — 2026-04-14
+
+> Found during role-based walk-through. See `docs/app-review-2026-04-14.md` for full findings.
+
+### P0 — Blockers
+
+| #   | Status | Task                                                                 | Bundle | Size |
+|-----|--------|----------------------------------------------------------------------|--------|------|
+| 091 | ✅ | Bug: secrets/environments/issues pages — projectId hardcoded as '' (TODO comment). Add ProjectPicker component with localStorage persistence | B17 | S |
+| 092 | ✅ | Bug: enqueueSyncIssues + enqueueNotification are empty stubs — implement PostgreSQL-backed job scheduling in runner_jobs table or log error clearly | B17 | M |
+
+### P1 — Major
+
+| #   | Status | Task                                                                 | Bundle | Size |
+|-----|--------|----------------------------------------------------------------------|--------|------|
+| 093 | ✅ | Bug: "+ New pipeline" button on /projects/[id] page has empty onClick — implement create + navigate | B17 | S |
+| 094 | ✅ | Bug: step delete missing — add DELETE /api/projects/[p]/pipelines/[p]/steps/[stepId] route + delete button in step card | B17 | S |
+| 095 | ✅ | Bug: step reorder missing — add up/down position controls in pipeline canvas, PUT updated position to API | B17 | S |
+| 096 | ✅ | Bug: DAG toggle button is dead (no implementation) — remove button until DAG canvas is built | B17 | XS |
+| 097 | ✅ | Bug: org switcher in TopNav only updates local state — add POST /api/auth/switch-org, re-issue session cookie | B17 | M |
+| 098 | ⬜ | Bug: SSE EventSource not cleaned up on unmount — already fixed in current code (line 122 has cleanup) | B17 | XS |
+
+### P2 — Significant UX
+
+| #   | Status | Task                                                                 | Bundle | Size |
+|-----|--------|----------------------------------------------------------------------|--------|------|
+| 099 | ✅ | Runner registration: Docker command uses hardcoded placeholder URL — replace with real token + window.location.origin | B17 | XS |
+| 100 | ✅ | Runner registration: capabilities field hardcoded to ['api'] — add api/ui/ai checkboxes to register form | B17 | S |
+| 101 | ⬜ | Issues page: add severity filter pill row alongside existing status filter | B17 | S |
+| 102 | ⬜ | Issues page: render assignee column in table | B17 | XS |
+| 103 | ⬜ | Flaky page: make rows clickable — navigate to run history for that step | B17 | S |
+| 104 | ⬜ | Coverage page: wire gap row click → draft API step scaffold | B17 | M |
+| 105 | ⬜ | Dashboard: add manual refresh button + auto-refresh every 30s | B17 | S |
+| 106 | ⬜ | Dashboard: empty state — show getting-started CTA when no pipelines exist | B17 | S |
+| 107 | ⬜ | Runs page: dedicated /api/runs endpoint with pagination + status/pipeline filters | B17 | M |
+| 108 | ⬜ | Runner registration: add confirmation dialog before Revoke | B17 | XS |
+| 109 | ⬜ | Secrets: add confirmation dialog before Delete | B17 | XS |
+| 110 | ⬜ | Step card: show step type badge (API/UI/AI) without opening editor | B17 | XS |
+
+---
+
 ## OWN AUTH — REMOVE CLERK (BLOCKING — app shows blank page)
 
 | #   | Status | Task                                                                 | Bundle | Size |
 |-----|--------|----------------------------------------------------------------------|--------|------|
-| 085 | 🔄 | Remove @clerk/nextjs — replace with custom JWT auth (jose + bcrypt) | B16 | L |
-| 086 | 🔄 | DB: users + orgs + sessions + memberships tables (migration 010) | B16 | M |
-| 087 | 🔄 | Auth routes: POST /api/auth/signup, /login, /logout, /me | B16 | M |
-| 088 | 🔄 | Middleware: validate session cookie → inject tenant context (replaces clerkMiddleware) | B16 | M |
-| 089 | 🔄 | Login/signup UI — themed, no external components | B16 | M |
+| 085 | ✅ | Remove @clerk/nextjs — replace with custom JWT auth (jose + bcrypt) | B16 | L |
+| 086 | ✅ | DB: users + orgs + sessions + memberships tables (migration 010) | B16 | M |
+| 087 | ✅ | Auth routes: POST /api/auth/signup, /login, /logout, /me | B16 | M |
+| 088 | ✅ | Middleware: validate session cookie → inject tenant context (replaces clerkMiddleware) | B16 | M |
+| 089 | ✅ | Login/signup UI — themed, no external components | B16 | M |
 | 090 | 🔄 | Org switcher + team invite — replaces Clerk org model | B16 | L |

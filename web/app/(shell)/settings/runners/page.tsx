@@ -22,6 +22,8 @@ const STATUS_DOT: Record<string, string> = {
   offline: 'bg-[var(--ct-skipped)]',
 }
 
+const CAPABILITY_OPTIONS = ['api', 'ui', 'ai'] as const
+
 export default function RunnersPage() {
   const [runners, setRunners] = useState<Runner[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +39,15 @@ export default function RunnersPage() {
 
   useEffect(() => { load() }, [])
 
+  function toggleCapability(cap: string) {
+    setForm((f) => ({
+      ...f,
+      capabilities: f.capabilities.includes(cap)
+        ? f.capabilities.filter((c) => c !== cap)
+        : [...f.capabilities, cap],
+    }))
+  }
+
   async function register() {
     const res = await fetch('/api/runners', {
       method: 'POST',
@@ -50,10 +61,12 @@ export default function RunnersPage() {
     const d = await res.json() as { data: Runner & { token: string } }
     setNewToken({ token: d.data.token, name: d.data.name })
     setShowRegister(false)
+    setForm({ name: '', tags: '', capabilities: ['api'] })
     load()
   }
 
-  async function revoke(id: string) {
+  async function revoke(id: string, name: string) {
+    if (!confirm(`Revoke runner "${name}"? It will stop receiving jobs immediately.`)) return
     await fetch(`/api/runners/${id}`, { method: 'DELETE' })
     load()
   }
@@ -93,7 +106,7 @@ export default function RunnersPage() {
     {
       key: 'actions', header: '', width: 'w-20',
       render: (r) => r.scope === 'self-hosted' ? (
-        <button onClick={() => revoke(r.id)} className="text-caption" style={{ color: 'var(--ct-fail)' }}>Revoke</button>
+        <button onClick={() => revoke(r.id, r.name)} className="text-caption" style={{ color: 'var(--ct-fail)' }}>Revoke</button>
       ) : null,
     },
   ]
@@ -134,7 +147,26 @@ export default function RunnersPage() {
               className="text-body px-3 py-2 rounded-md border"
               style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)' }} />
           </div>
-          <button onClick={register} className="text-label px-3 py-2 rounded-md self-start"
+          <div className="flex flex-col gap-1">
+            <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Capabilities</label>
+            <div className="flex gap-3">
+              {CAPABILITY_OPTIONS.map((cap) => (
+                <label key={cap} className="flex items-center gap-1.5 cursor-pointer text-body" style={{ color: 'var(--ct-text-1)' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.capabilities.includes(cap)}
+                    onChange={() => toggleCapability(cap)}
+                    className="rounded"
+                  />
+                  {cap.toUpperCase()}
+                </label>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={register}
+            disabled={!form.name || form.capabilities.length === 0}
+            className="text-label px-3 py-2 rounded-md self-start disabled:opacity-50"
             style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
             Generate token
           </button>
@@ -143,17 +175,37 @@ export default function RunnersPage() {
 
       {/* Token display — shown once */}
       {newToken && (
-        <div className="rounded-md border p-4" style={{ borderColor: 'var(--ct-flaky)', background: 'var(--ct-surface)' }}>
-          <p className="text-label mb-2" style={{ color: 'var(--ct-flaky)' }}>
+        <div className="rounded-md border p-4 flex flex-col gap-2" style={{ borderColor: 'var(--ct-flaky)', background: 'var(--ct-surface)' }}>
+          <p className="text-label" style={{ color: 'var(--ct-flaky)' }}>
             Copy this token now — it will not be shown again.
           </p>
-          <code className="text-mono px-3 py-2 rounded block break-all" style={{ background: 'var(--ct-surface-raised)', color: 'var(--ct-text-1)' }}>
-            RUNNER_TOKEN={newToken.token}
-          </code>
-          <p className="text-caption mt-2" style={{ color: 'var(--ct-text-3)' }}>
-            Run: <code className="text-mono">docker run -e RUNNER_TOKEN=... -e CT_API_BASE=https://app.continuous.testing ct/runner:latest</code>
+          <div className="flex gap-2 items-center">
+            <code className="text-mono px-3 py-2 rounded block break-all flex-1" style={{ background: 'var(--ct-surface-raised)', color: 'var(--ct-text-1)' }}>
+              {newToken.token}
+            </code>
+            <button
+              onClick={() => navigator.clipboard.writeText(newToken.token)}
+              className="text-label px-3 py-2 rounded-md border flex-shrink-0"
+              style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}
+            >
+              Copy
+            </button>
+          </div>
+          <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+            Docker command:
           </p>
-          <button onClick={() => setNewToken(null)} className="text-caption mt-2 underline" style={{ color: 'var(--ct-text-3)' }}>Dismiss</button>
+          <code className="text-mono px-3 py-2 rounded block break-all text-xs" style={{ background: 'var(--ct-surface-raised)', color: 'var(--ct-text-1)' }}>
+            {`docker run -e RUNNER_TOKEN=${newToken.token} -e CT_API_BASE=${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080'} ct/runner:latest`}
+          </code>
+          <button
+            onClick={() => navigator.clipboard.writeText(
+              `docker run -e RUNNER_TOKEN=${newToken.token} -e CT_API_BASE=${window.location.origin} ct/runner:latest`
+            )}
+            className="text-caption underline self-start" style={{ color: 'var(--ct-text-3)' }}
+          >
+            Copy command
+          </button>
+          <button onClick={() => setNewToken(null)} className="text-caption underline self-start mt-1" style={{ color: 'var(--ct-text-3)' }}>Dismiss</button>
         </div>
       )}
 

@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { DenseTable, type Column } from '@/components/data/DenseTable'
 import { StepStatusBadge, type StepStatus } from '@/components/domain/StepStatusBadge'
-import { RunSummaryBar } from '@/components/domain/RunSummaryBar'
 
 type Pipeline = {
   id: string
@@ -16,30 +15,38 @@ type Pipeline = {
   tags: string[]
 }
 
-type RecentRun = {
-  id: string
-  pipeline_id: string
-  status: StepStatus
-  total_steps: number
-  passed_steps: number
-  failed_steps: number
-  skipped_steps: number
-  trigger: string
-  created_at: string
-}
-
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const router = useRouter()
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [showForm, setShowForm] = useState(false)
 
-  useEffect(() => {
+  const load = () => {
     fetch(`/api/projects/${projectId}/pipelines`)
       .then((r) => r.json())
       .then((d) => { setPipelines((d as { data: Pipeline[] }).data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [projectId])
+  }
+
+  useEffect(load, [projectId])
+
+  async function createPipeline() {
+    if (!newName.trim()) return
+    setCreating(true)
+    const res = await fetch(`/api/projects/${projectId}/pipelines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim(), runs_on: ['hosted'] }),
+    })
+    const d = await res.json() as { data: { id: string } }
+    setCreating(false)
+    setShowForm(false)
+    setNewName('')
+    router.push(`/projects/${projectId}/pipelines/${d.data.id}`)
+  }
 
   const columns: Column<Pipeline>[] = [
     {
@@ -67,11 +74,47 @@ export default function ProjectPage() {
         <button
           className="text-label px-3 py-1.5 rounded-md font-medium"
           style={{ background: 'var(--ct-accent-500)', color: '#fff' }}
-          onClick={() => {/* create pipeline modal — B06 task 032 extension */}}
+          onClick={() => setShowForm(true)}
         >
           + New pipeline
         </button>
       </div>
+
+      {/* Inline create form */}
+      {showForm && (
+        <div
+          className="rounded-md border p-4 flex gap-3 items-end"
+          style={{ borderColor: 'var(--ct-border)', background: 'var(--ct-surface)' }}
+        >
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Pipeline name</label>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') createPipeline() }}
+              placeholder="e.g. Checkout flow"
+              className="text-body px-3 py-2 rounded-md border"
+              style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)' }}
+            />
+          </div>
+          <button
+            onClick={createPipeline}
+            disabled={creating || !newName.trim()}
+            className="text-label px-3 py-2 rounded-md disabled:opacity-50"
+            style={{ background: 'var(--ct-accent-500)', color: '#fff' }}
+          >
+            {creating ? 'Creating…' : 'Create'}
+          </button>
+          <button
+            onClick={() => { setShowForm(false); setNewName('') }}
+            className="text-label px-3 py-2 rounded-md border"
+            style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div className="rounded-md border overflow-hidden" style={{ borderColor: 'var(--ct-border)' }}>
         <DenseTable

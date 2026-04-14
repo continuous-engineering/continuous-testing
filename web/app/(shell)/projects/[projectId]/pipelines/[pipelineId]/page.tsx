@@ -7,7 +7,6 @@ import { StepCard, StepConnector } from '@/components/domain/StepCard'
 import { StepStatusBadge, type StepStatus } from '@/components/domain/StepStatusBadge'
 import { RunSummaryBar } from '@/components/domain/RunSummaryBar'
 import { useUiStore } from '@/lib/store/ui'
-import { cn } from '@/lib/utils'
 
 type StepDef = {
   id: string
@@ -49,7 +48,7 @@ type RunState = {
 
 export default function PipelinePage() {
   const { projectId, pipelineId } = useParams<{ projectId: string; pipelineId: string }>()
-  const { editingStepId, openStepEditor, closeStepEditor, dagViewEnabled, toggleDagView } = useUiStore()
+  const { editingStepId, openStepEditor, closeStepEditor } = useUiStore()
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
   const [run, setRun] = useState<RunState | null>(null)
@@ -57,12 +56,17 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
 
+  function reload() {
+    return fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`)
+      .then((r) => r.json())
+      .then((d) => setPipeline((d as { data: Pipeline }).data))
+  }
+
   // Load pipeline
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`)
-      .then((r) => r.json())
-      .then((d) => { setPipeline((d as { data: Pipeline }).data); setLoading(false) })
+    reload()
+      .then(() => setLoading(false))
       .catch((e) => { setError(String(e)); setLoading(false) })
   }, [projectId, pipelineId])
 
@@ -119,6 +123,41 @@ export default function PipelinePage() {
     subscribeToRun(runId)
   }
 
+  async function deleteStep(stepId: string) {
+    if (!confirm('Remove this step?')) return
+    await fetch(`/api/projects/${projectId}/pipelines/${pipelineId}/steps/${stepId}`, { method: 'DELETE' })
+    if (editingStepId === stepId) closeStepEditor()
+    reload()
+  }
+
+  async function moveStep(stepId: string, direction: 'up' | 'down') {
+    if (!pipeline) return
+    const steps = [...pipeline.steps].sort((a, b) => a.position - b.position)
+    const idx = steps.findIndex((s) => s.id === stepId)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= steps.length) return
+
+    // Swap positions and PUT each
+    const a = steps[idx]
+    const b = steps[swapIdx]
+    if (!a || !b) return
+    const newPosA = b.position
+    const newPosB = a.position
+
+    await fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        steps: [
+          { ...a, position: newPosA },
+          { ...b, position: newPosB },
+        ],
+      }),
+    })
+    reload()
+  }
+
+  // Cleanup SSE on unmount
   useEffect(() => () => eventSourceRef.current?.close(), [])
 
   if (loading) return <div className="p-6 text-body" style={{ color: 'var(--ct-text-2)' }}>Loading pipeline…</div>
@@ -140,7 +179,7 @@ export default function PipelinePage() {
           <div className="flex items-center gap-3">
             <span className="text-heading" style={{ color: 'var(--ct-text-1)' }}>{pipeline.name}</span>
             <span className="text-caption px-2 py-0.5 rounded" style={{ background: 'var(--ct-surface-overlay)', color: 'var(--ct-text-3)' }}>
-              {totalSteps} steps
+              {totalSteps} step{totalSteps !== 1 ? 's' : ''}
             </span>
             {pipeline.runs_on.map((tag) => (
               <span key={tag} className="text-caption px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-3)' }}>
@@ -150,17 +189,6 @@ export default function PipelinePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleDagView}
-              className={cn(
-                'text-label px-2 py-1 rounded border transition-colors',
-                dagViewEnabled
-                  ? 'border-[var(--ct-accent-500)] text-[var(--ct-accent-400)]'
-                  : 'border-[var(--ct-border)] text-[var(--ct-text-2)]',
-              )}
-            >
-              DAG
-            </button>
             <button
               onClick={triggerRun}
               disabled={run?.status === 'running'}
@@ -183,36 +211,65 @@ export default function PipelinePage() {
           </div>
         )}
 
-        {/* Steps list — linear view (default) */}
+        {/* Steps list */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col max-w-xl">
             {steps.map((step, i) => {
               const stepResult = run?.stepResults[step.id]
               return (
                 <div key={step.id}>
-                  <StepCard
-                    id={step.id}
-                    name={step.name}
-                    type={step.type}
-                    position={step.position}
-                    status={stepResult?.status ?? (run ? 'pending' : undefined)}
-                    durationMs={stepResult?.duration_ms}
-                    isEditing={editingStepId === step.id}
-                    onClick={() => editingStepId === step.id ? closeStepEditor() : openStepEditor(step.id)}
-                  />
-                  {i < steps.length - 1 && <StepConnector />}
+                  <div className="flex items-center gap-2">
+                    {/* Reorder controls */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button
+                        onClick={() => moveStep(step.id, 'up')}
+                        disabled={i === 0}
+                        className="text-caption w-5 h-5 flex items-center justify-center rounded disabled:opacity-20 hover:bg-[var(--ct-surface-raised)]"
+                        style={{ color: 'var(--ct-text-3)' }}
+                        title="Move up"
+                      >▲</button>
+                      <button
+                        onClick={() => moveStep(step.id, 'down')}
+                        disabled={i === steps.length - 1}
+                        className="text-caption w-5 h-5 flex items-center justify-center rounded disabled:opacity-20 hover:bg-[var(--ct-surface-raised)]"
+                        style={{ color: 'var(--ct-text-3)' }}
+                        title="Move down"
+                      >▼</button>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <StepCard
+                        id={step.id}
+                        name={step.name}
+                        type={step.type}
+                        position={step.position}
+                        status={stepResult?.status ?? (run ? 'pending' : undefined)}
+                        durationMs={stepResult?.duration_ms}
+                        isEditing={editingStepId === step.id}
+                        onClick={() => editingStepId === step.id ? closeStepEditor() : openStepEditor(step.id)}
+                      />
+                    </div>
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => deleteStep(step.id)}
+                      className="text-caption flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--ct-surface-raised)]"
+                      style={{ color: 'var(--ct-text-3)' }}
+                      title="Delete step"
+                    >×</button>
+                  </div>
+                  {i < steps.length - 1 && (
+                    <div className="ml-7">
+                      <StepConnector />
+                    </div>
+                  )}
                 </div>
               )
             })}
 
             {/* Add step button */}
-            <div className="mt-3">
-              <AddStepMenu projectId={projectId} pipelineId={pipelineId} position={totalSteps} onAdded={() => {
-                // Reload pipeline
-                fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`)
-                  .then((r) => r.json())
-                  .then((d) => setPipeline((d as { data: Pipeline }).data))
-              }} />
+            <div className="mt-3 ml-7">
+              <AddStepMenu projectId={projectId} pipelineId={pipelineId} position={totalSteps} onAdded={reload} />
             </div>
           </div>
         </div>
@@ -225,11 +282,7 @@ export default function PipelinePage() {
           projectId={projectId}
           pipelineId={pipelineId}
           onClose={closeStepEditor}
-          onSaved={() => {
-            fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`)
-              .then((r) => r.json())
-              .then((d) => setPipeline((d as { data: Pipeline }).data))
-          }}
+          onSaved={reload}
         />
       )}
     </div>
@@ -303,6 +356,14 @@ function StepEditorDrawer({ step, projectId, pipelineId, onClose, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
 
+  // Sync state when a different step is selected
+  useEffect(() => {
+    setName(step.name)
+    setConfig(JSON.stringify(step.config, null, 2))
+    setOnFailure(step.on_failure)
+    setConfigError(null)
+  }, [step.id])
+
   async function save() {
     let parsed: unknown
     try { parsed = JSON.parse(config) } catch { setConfigError('Invalid JSON'); return }
@@ -316,6 +377,12 @@ function StepEditorDrawer({ step, projectId, pipelineId, onClose, onSaved }: {
     setSaving(false)
     onSaved()
   }
+
+  const configHint = step.type === 'api'
+    ? '{ method, url, headers, assertions }'
+    : step.type === 'ui'
+    ? '{ actions, assertions }'
+    : '{ prompt, expected_response, threshold }'
 
   return (
     <div
@@ -365,11 +432,11 @@ function StepEditorDrawer({ step, projectId, pipelineId, onClose, onSaved }: {
         {/* Config JSON editor */}
         <div className="flex flex-col gap-1 flex-1">
           <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
-            Config {step.type === 'api' ? '(method, url, headers, assertions)' : step.type === 'ui' ? '(actions, assertions)' : '(prompt, expected, threshold)'}
+            Config <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{configHint}</span>
           </label>
           <textarea
             value={config}
-            onChange={(e) => setConfig(e.target.value)}
+            onChange={(e) => { setConfig(e.target.value); setConfigError(null) }}
             spellCheck={false}
             className="flex-1 min-h-[200px] font-mono text-mono px-3 py-2 rounded-md border resize-none"
             style={{

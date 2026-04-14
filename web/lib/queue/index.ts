@@ -31,13 +31,23 @@ export async function enqueueRunDag(opts: EnqueueRunDagOpts): Promise<void> {
   }
 }
 
-// Sync and notification jobs handled by interval workers in the web app process (B10, B11)
+// ── B10 / B11 — Not yet called (no callers built yet) ───────────────────────
+//
+// These stubs exist to define the interface for future interval workers.
+// Implementation requires:
+//   enqueueSyncIssues → INSERT INTO runner_jobs (type='sync_issues') or direct adapter call
+//     Callers: run result handler (auto-issue creation on step failure), webhook inbound
+//   enqueueNotification → call Slack/Email/Webhook adapter per pipeline notification config
+//     Callers: run result handler (on run_complete event), issue status change handler
+//
+// Until the interval worker infrastructure (B10/B11) is built, these are no-ops.
+
 export async function enqueueSyncIssues(_tenantId: string, _adapter: string): Promise<void> {
-  // Implemented in B10
+  // TODO B10: implement interval worker that calls adapter.push/pull/sync
 }
 
 export async function enqueueNotification(
   _tenantId: string, _event: string, _payload: Record<string, unknown>,
 ): Promise<void> {
-  // Implemented in B11
+  // TODO B11: implement notification adapter dispatch (Slack, Email, Webhook)
 }

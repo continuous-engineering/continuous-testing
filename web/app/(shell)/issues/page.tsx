@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { DenseTable, type Column } from '@/components/data/DenseTable'
 import { cn } from '@/lib/utils'
+import { useProjectPicker } from '@/lib/hooks/useProjectPicker'
 
 type IssueStatus = 'open' | 'acknowledged' | 'in_progress' | 'resolved'
 type IssueSeverity = 'low' | 'medium' | 'high' | 'critical'
@@ -36,7 +37,7 @@ const SEV_COLORS: Record<IssueSeverity, string> = {
 const STATUS_OPTIONS: IssueStatus[] = ['open', 'acknowledged', 'in_progress', 'resolved']
 
 export default function IssuesPage() {
-  const projectId = '' // TODO: from active project
+  const { projectId, setProjectId, projects, loading: projectsLoading } = useProjectPicker()
   const [issues, setIssues] = useState<Issue[]>([])
   const [statusFilter, setStatusFilter] = useState<IssueStatus | ''>('')
   const [loading, setLoading] = useState(true)
@@ -65,7 +66,7 @@ export default function IssuesPage() {
     {
       key: 'severity', header: '', width: 'w-4',
       render: (i) => (
-        <span className="w-1.5 h-1.5 rounded-full block" style={{ background: SEV_COLORS[i.severity] }} />
+        <span title={i.severity} className="w-1.5 h-1.5 rounded-full block" style={{ background: SEV_COLORS[i.severity] }} />
       ),
     },
     {
@@ -84,6 +85,14 @@ export default function IssuesPage() {
             </div>
           )}
         </div>
+      ),
+    },
+    {
+      key: 'assignee', header: 'Assignee', width: 'w-28',
+      render: (i) => (
+        <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+          {i.assignee ?? '—'}
+        </span>
       ),
     },
     {
@@ -121,30 +130,52 @@ export default function IssuesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-title" style={{ color: 'var(--ct-text-1)' }}>Issues</h1>
 
-        {/* Status filter */}
-        <div className="flex gap-1.5">
-          {(['', ...STATUS_OPTIONS] as const).map((s) => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={cn('text-label px-2.5 py-1 rounded-md border transition-colors')}
-              style={{
-                borderColor: statusFilter === s ? 'var(--ct-accent-500)' : 'var(--ct-border)',
-                color: statusFilter === s ? 'var(--ct-accent-400)' : 'var(--ct-text-2)',
-                background: 'var(--ct-surface)',
-              }}>
-              {s || 'All'}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Project picker */}
+          {!projectsLoading && projects.length > 1 && (
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="text-body px-3 py-1.5 rounded-md border"
+              style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)' }}
+            >
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
+
+          {/* Status filter */}
+          <div className="flex gap-1.5">
+            {(['', ...STATUS_OPTIONS] as const).map((s) => (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className={cn('text-label px-2.5 py-1 rounded-md border transition-colors')}
+                style={{
+                  borderColor: statusFilter === s ? 'var(--ct-accent-500)' : 'var(--ct-border)',
+                  color: statusFilter === s ? 'var(--ct-accent-400)' : 'var(--ct-text-2)',
+                  background: 'var(--ct-surface)',
+                }}>
+                {s || 'All'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="rounded-md border overflow-hidden" style={{ borderColor: 'var(--ct-border)' }}>
-        <DenseTable
-          columns={columns}
-          rows={issues}
-          getKey={(i) => i.id}
-          emptyMessage={loading ? 'Loading…' : statusFilter ? `No ${statusFilter} issues.` : 'No issues — all tests passing!'}
-        />
-      </div>
+      {!projectId && !projectsLoading && (
+        <p className="text-body" style={{ color: 'var(--ct-text-3)' }}>
+          No projects found. Create a project first.
+        </p>
+      )}
+
+      {projectId && (
+        <div className="rounded-md border overflow-hidden" style={{ borderColor: 'var(--ct-border)' }}>
+          <DenseTable
+            columns={columns}
+            rows={issues}
+            getKey={(i) => i.id}
+            emptyMessage={loading ? 'Loading…' : statusFilter ? `No ${statusFilter} issues.` : 'No issues — all tests passing!'}
+          />
+        </div>
+      )}
     </div>
   )
 }
