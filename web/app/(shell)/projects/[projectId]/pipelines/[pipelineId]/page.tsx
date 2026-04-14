@@ -159,6 +159,15 @@ export default function PipelinePage() {
                 {totalSteps} step{totalSteps !== 1 ? 's' : ''}
               </span>
             </div>
+            <a
+              href={`/api/projects/${projectId}/pipelines/${pipelineId}/export`}
+              download
+              className="text-label px-2 py-1 rounded border transition-colors"
+              style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)', textDecoration: 'none' }}
+              title="Export pipeline as YAML"
+            >
+              ↓ YAML
+            </a>
             <button onClick={triggerRun} disabled={run?.status === 'running'}
               className="text-label px-3 py-1 rounded font-medium disabled:opacity-50 flex-shrink-0"
               style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
