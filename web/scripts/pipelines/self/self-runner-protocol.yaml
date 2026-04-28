@@ -1,0 +1,148 @@
+version: "1"
+name: Self — Runner Protocol
+description: >
+  Tests the full runner handshake: register runner → verify it appears in the
+  fleet → heartbeat → claim (expects no job — 204 No Content is the correct
+  response when the queue is empty).
+
+  The runner token issued at registration is captured via ctx and used in the
+  X-Runner-Token header for heartbeat and claim steps.
+
+  The registered runner is NOT deleted after the test — runners are long-lived
+  infrastructure. Remove it manually via Settings → Runners if needed.
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY
+runs_on:
+  - hosted
+tags:
+  - runners
+  - self-test
+
+steps:
+  - name: "GET runners/status — pre-check"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runners/status"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "Register runner"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    outputs:
+      runner_id: "$.id"
+      runner_token: "$.token"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/runners"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "ct-self-test-runner"
+        tags:
+          - self-test
+          - api
+        capabilities:
+          - api
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.token"
+          operator: ne
+          expected: ""
+
+  - name: "GET runners list — runner appears"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Register runner"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runners"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "POST heartbeat — updates last_seen_at"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Register runner"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/runners/heartbeat"
+      headers:
+        x-runner-token: "{{ctx.runner_token}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.status"
+          operator: eq
+          expected: "ok"
+
+  - name: "POST claim — no job available (204 expected)"
+    type: api
+    on_failure: continue
+    timeout_ms: 10000
+    prerequisites:
+      - "Register runner"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/runners/claim"
+      headers:
+        x-runner-token: "{{ctx.runner_token}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 204
+
+  - name: "POST heartbeat without token — must reject"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/runners/heartbeat"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "POST claim with invalid token — must reject"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/runners/claim"
+      headers:
+        x-runner-token: "not-a-valid-runner-token"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401

@@ -1,5 +1,5 @@
 /**
- * Resolve {{ctx.key}} and {{env.key}} and {{secrets.key}} in strings and objects.
+ * Resolve {{ctx.key}}, {{env.key}}, {{row.key}}, and {{secrets.key}} in strings and objects.
  * Called at execution time — never at design time.
  */
 export function interpolate(
@@ -7,22 +7,24 @@ export function interpolate(
   ctx: Record<string, unknown>,
   env: Record<string, string>,
   secrets: Record<string, string>,
+  row: Record<string, unknown> = {},
 ): unknown {
   if (typeof value === 'string') {
-    return value.replace(/\{\{(ctx|env|secrets)\.([^}]+)\}\}/g, (_, ns, key) => {
+    return value.replace(/\{\{(ctx|env|row|secrets)\.([^}]+)\}\}/g, (_, ns, key) => {
       if (ns === 'ctx')     return String(ctx[key]     ?? '')
       if (ns === 'env')     return String(env[key]     ?? '')
+      if (ns === 'row')     return String(row[key]     ?? '')
       if (ns === 'secrets') return String(secrets[key] ?? '')
       return ''
     })
   }
   if (Array.isArray(value)) {
-    return value.map((v) => interpolate(v, ctx, env, secrets))
+    return value.map((v) => interpolate(v, ctx, env, secrets, row))
   }
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([k, v]) => [
-        k, interpolate(v, ctx, env, secrets),
+        k, interpolate(v, ctx, env, secrets, row),
       ]),
     )
   }

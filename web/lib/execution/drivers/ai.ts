@@ -21,7 +21,7 @@ export async function runAiStep(
   runCtx: RunContext,
 ): Promise<StepResult> {
   const startedAt = new Date()
-  const rawConfig = interpolate(step.config, ctx, runCtx.env, runCtx.secrets) as Record<string, unknown>
+  const rawConfig = interpolate(step.config, ctx, runCtx.env, runCtx.secrets, runCtx.row) as Record<string, unknown>
   const config = AiStepConfig.parse(rawConfig)
 
   let agentResponse = ''

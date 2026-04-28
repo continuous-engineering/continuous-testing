@@ -7,6 +7,8 @@ import type { NextRequest } from 'next/server'
 import { verifyJwtEdge } from '@/lib/auth-edge'
 
 // Only these exact paths bypass auth — /api/auth/me is NOT listed (requires valid session)
+// Runner sub-routes: only claim/heartbeat/result use runner-token auth (no session).
+// /api/runners  (list/register) and /api/runners/status require session auth.
 const PUBLIC = [
   '/login',
   '/signup',
@@ -15,11 +17,15 @@ const PUBLIC = [
   '/api/auth/logout',
   '/api/webhooks/',
   '/api/triggers/',
-  '/api/runners/',
+  '/api/runners/claim',
+  '/api/runners/heartbeat',
+  '/api/runners/result',
 ]
 const SESSION_COOKIE = 'ct_session'
 
-function isPublic(p: string) { return PUBLIC.some(r => p.startsWith(r)) }
+function isPublic(p: string) {
+  return PUBLIC.some(r => p === r || (r.endsWith('/') ? p.startsWith(r) : p.startsWith(r + '/')))
+}
 function isApi(p: string)    { return p.startsWith('/api/') }
 
 function isTestRequest(req: NextRequest): boolean {

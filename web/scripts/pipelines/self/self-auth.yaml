@@ -1,0 +1,120 @@
+version: "1"
+name: Self — Auth Flow
+description: >
+  Tests the full authentication surface: valid login, bad credentials rejection,
+  session identity check, and logout. All steps run in parallel — each tests an
+  independent auth behaviour.
+
+  Environment variables required:
+    {{env.APP_URL}}       — the app's own URL
+    {{env.CT_TEST_KEY}}   — value of CT_TEST_API_KEY (bypass for /me and logout)
+    {{env.TEST_EMAIL}}    — email of an existing test user account
+    {{env.TEST_PASSWORD}} — password for the test user account
+
+  Steps do NOT clean up session state — cookies are not persisted between steps.
+runs_on:
+  - hosted
+tags:
+  - auth
+  - self-test
+
+steps:
+  - name: "Login — valid credentials"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/auth/login"
+      headers:
+        Content-Type: application/json
+      body:
+        email: "{{env.TEST_EMAIL}}"
+        password: "{{env.TEST_PASSWORD}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.userId"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.orgId"
+          operator: ne
+          expected: ""
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "Login — invalid password rejected"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/auth/login"
+      headers:
+        Content-Type: application/json
+      body:
+        email: "{{env.TEST_EMAIL}}"
+        password: "wrong-password-ct-self-test"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Login — unknown email rejected"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/auth/login"
+      headers:
+        Content-Type: application/json
+      body:
+        email: "no-such-user-ct-self-test@continuous.testing"
+        password: "irrelevant"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "GET /me — test-bypass identity"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/auth/me"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.user.id"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.activeOrgId"
+          operator: ne
+          expected: ""
+
+  - name: "Logout — clears session"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/auth/logout"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body: {}
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300

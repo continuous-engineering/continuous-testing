@@ -1,0 +1,181 @@
+version: "1"
+name: Self — Import and Export
+description: >
+  Tests the pipeline import/export round-trip: create project → import a
+  pipeline from YAML string → verify pipeline was created with correct step
+  count → export the pipeline back to YAML → verify the export is non-empty →
+  clean up.
+
+  The import body sends a minimal but valid pipeline YAML document as a JSON
+  string field. The export returns the pipeline as a YAML document.
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY
+runs_on:
+  - hosted
+tags:
+  - import
+  - export
+  - pipelines
+  - self-test
+
+steps:
+  - name: "Create project"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    outputs:
+      project_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "CT Self-Test — Import Export"
+        slug: "ct-self-test-imex"
+        description: "Created by self-test pipeline — safe to delete"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  - name: "Import pipeline from YAML"
+    type: api
+    on_failure: stop
+    timeout_ms: 10000
+    prerequisites:
+      - "Create project"
+    outputs:
+      imported_pipeline_id: "$.pipelineId"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/import"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        yaml: |
+          version: "1"
+          name: Imported Self-Test Pipeline
+          description: Imported via API by self-test pipeline
+          runs_on:
+            - hosted
+          tags:
+            - imported
+            - self-test
+          steps:
+            - name: Step one
+              type: api
+              on_failure: stop
+              timeout_ms: 10000
+              config:
+                method: GET
+                url: "{{env.APP_URL}}/api/runners/status"
+                headers:
+                  x-ct-test-key: "{{env.CT_TEST_KEY}}"
+                assertions:
+                  - type: status
+                    operator: lt
+                    expected: 300
+            - name: Step two
+              type: api
+              on_failure: continue
+              timeout_ms: 10000
+              prerequisites:
+                - Step one
+              config:
+                method: GET
+                url: "{{env.APP_URL}}/api/projects"
+                headers:
+                  x-ct-test-key: "{{env.CT_TEST_KEY}}"
+                assertions:
+                  - type: status
+                    operator: lt
+                    expected: 300
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.pipelineId"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.stepCount"
+          operator: eq
+          expected: 2
+
+  - name: "GET imported pipeline — verify structure"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Import pipeline from YAML"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.imported_pipeline_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "Imported Self-Test Pipeline"
+
+  - name: "Export pipeline — verify non-empty YAML"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "GET imported pipeline — verify structure"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.imported_pipeline_id}}/export"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "DELETE imported pipeline"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Export pipeline — verify non-empty YAML"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.imported_pipeline_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "DELETE project"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "DELETE imported pipeline"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300

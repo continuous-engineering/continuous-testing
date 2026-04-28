@@ -22,7 +22,12 @@ type StepDef = {
 type Pipeline = {
   id: string; name: string; description?: string
   runs_on: string[]; steps: StepDef[]
+  default_dataset_id?: string | null
+  default_environment_id?: string | null
 }
+
+type DatasetColumn = { key: string; label: string; type: string }
+type DatasetSchema = { columns: DatasetColumn[] }
 
 type StepResult = {
   step_id: string; status: StepStatus; duration_ms: number
@@ -54,20 +59,29 @@ export default function PipelinePage() {
   const [zenMode, setZenMode]       = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showRunModal, setShowRunModal] = useState(false)
-  const [environments, setEnvironments] = useState<{ id: string; name: string; is_default: boolean }[]>([])
-  const [datasets,     setDatasets]     = useState<{ id: string; name: string; row_count: number }[]>([])
+  const [environments,   setEnvironments]   = useState<{ id: string; name: string; is_default: boolean; variables?: Record<string,string> }[]>([])
+  const [datasets,       setDatasets]       = useState<{ id: string; name: string; row_count: number }[]>([])
+  const [defaultSchema,  setDefaultSchema]  = useState<DatasetSchema | null>(null)
   const eventSourceRef              = useRef<EventSource | null>(null)
 
   const reload = useCallback(() =>
     fetch(`/api/projects/${projectId}/pipelines/${pipelineId}`)
       .then(r => r.json())
-      .then((d: { data: Pipeline }) => setPipeline(d.data))
+      .then((d: { data: Pipeline }) => { setPipeline(d.data); return d.data })
   , [projectId, pipelineId])
 
   useEffect(() => {
     setLoading(true)
     Promise.all([
-      reload(),
+      reload().then(async (pipe) => {
+        // Once pipeline is loaded, fetch schema for default dataset (used for variable hints)
+        const dsId = (pipe as unknown as Pipeline | undefined)?.default_dataset_id
+        if (dsId) {
+          fetch(`/api/projects/${projectId}/datasets/${dsId}`).then(r => r.json())
+            .then((d: { data: { schema_json: DatasetSchema } }) => setDefaultSchema(d.data?.schema_json ?? null))
+            .catch(() => {})
+        }
+      }),
       fetch(`/api/projects/${projectId}/specs`).then(r => r.json())
         .then((d: { data: SpecSummary[] }) => setSpecs(d.data ?? [])).catch(() => {}),
       fetch(`/api/projects/${projectId}/environments`).then(r => r.json())
@@ -262,6 +276,8 @@ export default function PipelinePage() {
         <RunModal
           environments={environments}
           datasets={datasets}
+          defaultEnvId={pipeline.default_environment_id ?? undefined}
+          defaultDatasetId={pipeline.default_dataset_id ?? undefined}
           onRun={(opts) => triggerRun(opts)}
           onClose={() => setShowRunModal(false)}
         />
@@ -273,8 +289,10 @@ export default function PipelinePage() {
           pipeline={pipeline}
           projectId={projectId}
           pipelineId={pipelineId}
+          environments={environments}
+          datasets={datasets}
           onClose={() => setShowSettings(false)}
-          onSaved={() => { setShowSettings(false); reload() }}
+          onSaved={() => { setShowSettings(false); void reload() }}
         />
       )}
 
@@ -282,10 +300,16 @@ export default function PipelinePage() {
       {editingStepId && editingStep && (
         <StepEditorDrawer
           step={editingStep}
+          allSteps={steps}
           projectId={projectId}
           pipelineId={pipelineId}
           specs={specs}
           zenMode={zenMode}
+          envKeys={Object.keys(
+            environments.find(e => e.id === pipeline.default_environment_id)?.variables ??
+            environments.find(e => e.is_default)?.variables ?? {}
+          )}
+          rowKeys={(defaultSchema?.columns ?? []).map(c => c.key)}
           onToggleZen={() => setZenMode(z => !z)}
           onClose={() => { closeStepEditor(); setZenMode(false) }}
           onSaved={reload}
@@ -297,15 +321,17 @@ export default function PipelinePage() {
 
 // ── Run Modal ────────────────────────────────────────────────────────────────
 
-function RunModal({ environments, datasets, onRun, onClose }: {
-  environments: { id: string; name: string; is_default: boolean }[]
-  datasets:     { id: string; name: string; row_count: number }[]
+function RunModal({ environments, datasets, defaultEnvId, defaultDatasetId, onRun, onClose }: {
+  environments:     { id: string; name: string; is_default: boolean }[]
+  datasets:         { id: string; name: string; row_count: number }[]
+  defaultEnvId?:    string
+  defaultDatasetId?: string
   onRun: (opts: { environmentId?: string; datasetId?: string }) => void
   onClose: () => void
 }) {
-  const defaultEnv = environments.find(e => e.is_default) ?? environments[0]
-  const [envId,     setEnvId]     = useState(defaultEnv?.id ?? '')
-  const [datasetId, setDatasetId] = useState('')
+  const fallbackEnv = environments.find(e => e.is_default) ?? environments[0]
+  const [envId,     setEnvId]     = useState(defaultEnvId ?? fallbackEnv?.id ?? '')
+  const [datasetId, setDatasetId] = useState(defaultDatasetId ?? '')
   const selectedDataset = datasets.find(d => d.id === datasetId)
 
   const selStyle: React.CSSProperties = {
@@ -401,17 +427,21 @@ function RunModal({ environments, datasets, onRun, onClose }: {
 
 // ── Pipeline Settings Panel ──────────────────────────────────────────────────
 
-function PipelineSettingsPanel({ pipeline, projectId, pipelineId, onClose, onSaved }: {
+function PipelineSettingsPanel({ pipeline, projectId, pipelineId, environments, datasets, onClose, onSaved }: {
   pipeline: Pipeline; projectId: string; pipelineId: string
+  environments: { id: string; name: string; is_default: boolean }[]
+  datasets:     { id: string; name: string; row_count: number }[]
   onClose: () => void; onSaved: () => void
 }) {
-  const [name,        setName]        = useState(pipeline.name)
-  const [description, setDescription] = useState(pipeline.description ?? '')
-  const [runsOnText,  setRunsOnText]  = useState(pipeline.runs_on.join(', '))
-  const [tagsText,    setTagsText]    = useState((pipeline as Record<string,unknown>).tags as string[] | undefined ? ((pipeline as Record<string,unknown>).tags as string[]).join(', ') : '')
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState('')
-  const [deleting,    setDeleting]    = useState(false)
+  const [name,          setName]          = useState(pipeline.name)
+  const [description,   setDescription]   = useState(pipeline.description ?? '')
+  const [runsOnText,    setRunsOnText]    = useState(pipeline.runs_on.join(', '))
+  const [tagsText,      setTagsText]      = useState((pipeline as Record<string,unknown>).tags as string[] | undefined ? ((pipeline as Record<string,unknown>).tags as string[]).join(', ') : '')
+  const [defaultEnvId,  setDefaultEnvId]  = useState(pipeline.default_environment_id ?? '')
+  const [defaultDsId,   setDefaultDsId]   = useState(pipeline.default_dataset_id ?? '')
+  const [saving,        setSaving]        = useState(false)
+  const [error,         setError]         = useState('')
+  const [deleting,      setDeleting]      = useState(false)
 
   async function save() {
     setSaving(true); setError('')
@@ -422,6 +452,8 @@ function PipelineSettingsPanel({ pipeline, projectId, pipelineId, onClose, onSav
         description: description || undefined,
         runs_on: runsOnText.split(',').map(t => t.trim()).filter(Boolean),
         tags:    tagsText.split(',').map(t => t.trim()).filter(Boolean),
+        default_environment_id: defaultEnvId || null,
+        default_dataset_id:     defaultDsId  || null,
       }),
     })
     setSaving(false)
@@ -488,6 +520,40 @@ function PipelineSettingsPanel({ pipeline, projectId, pipelineId, onClose, onSav
             placeholder="smoke, regression, nightly"
             className="text-body px-3 py-2 rounded-md border"
             style={inputStyle} />
+        </div>
+
+        <hr style={{ borderColor: 'var(--ct-border)' }} />
+
+        {/* Default environment */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+            Default environment
+            <span className="text-caption ml-2" style={{ color: 'var(--ct-text-3)' }}>pre-selected when triggering a run</span>
+          </label>
+          <select value={defaultEnvId} onChange={e => setDefaultEnvId(e.target.value)}
+            className="text-body px-3 py-2 rounded-md border"
+            style={inputStyle}>
+            <option value="">— none —</option>
+            {environments.map(e => (
+              <option key={e.id} value={e.id}>{e.name}{e.is_default ? ' (default)' : ''}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Default dataset */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+            Default dataset
+            <span className="text-caption ml-2" style={{ color: 'var(--ct-text-3)' }}>pre-selected when triggering a run · enables {'{{row.KEY}}'} hints</span>
+          </label>
+          <select value={defaultDsId} onChange={e => setDefaultDsId(e.target.value)}
+            className="text-body px-3 py-2 rounded-md border"
+            style={inputStyle}>
+            <option value="">— none —</option>
+            {datasets.map(d => (
+              <option key={d.id} value={d.id}>{d.name} ({d.row_count} rows)</option>
+            ))}
+          </select>
         </div>
 
         {error && <p className="text-caption" style={{ color: 'var(--ct-fail)' }}>{error}</p>}
@@ -658,11 +724,16 @@ function AddStepMenu({ projectId, pipelineId, position, onAdded }: {
 
 // ── Step Editor Drawer ────────────────────────────────────────────────────────
 
-function StepEditorDrawer({ step, projectId, pipelineId, specs, zenMode, onToggleZen, onClose, onSaved }: {
-  step: StepDef; projectId: string; pipelineId: string
+function StepEditorDrawer({ step, allSteps, projectId, pipelineId, specs, zenMode, envKeys, rowKeys, onToggleZen, onClose, onSaved }: {
+  step: StepDef; allSteps: StepDef[]; projectId: string; pipelineId: string
   specs: SpecSummary[]; zenMode: boolean
+  envKeys: string[]; rowKeys: string[]
   onToggleZen: () => void; onClose: () => void; onSaved: () => void
 }) {
+  // ctx keys = output keys declared by steps that come before this step (by position)
+  const ctxKeys = allSteps
+    .filter(s => s.id !== step.id && s.position < step.position)
+    .flatMap(s => Object.keys(s.outputs))
   const [name, setName]           = useState(step.name)
   const [onFailure, setOnFailure] = useState(step.on_failure)
   const [config, setConfig]       = useState<Record<string, unknown>>(step.config)
@@ -741,6 +812,11 @@ function StepEditorDrawer({ step, projectId, pipelineId, specs, zenMode, onToggl
 
         <hr style={{ borderColor: 'var(--ct-border)' }} />
 
+        {/* Variable reference hints */}
+        {(envKeys.length > 0 || rowKeys.length > 0 || ctxKeys.length > 0) && (
+          <VarHints envKeys={envKeys} rowKeys={rowKeys} ctxKeys={ctxKeys} />
+        )}
+
         {/* Type-specific config forms */}
         {step.type === 'api' && (
           <ApiConfigForm config={config} onChange={setConfig} specs={specs} projectId={projectId} />
@@ -762,6 +838,56 @@ function StepEditorDrawer({ step, projectId, pipelineId, specs, zenMode, onToggl
         </button>
         {saveError && <span className="text-caption" style={{ color: 'var(--ct-fail)' }}>{saveError}</span>}
       </div>
+    </div>
+  )
+}
+
+// ── Variable hints ────────────────────────────────────────────────────────────
+
+function VarHints({ envKeys, rowKeys, ctxKeys }: { envKeys: string[]; rowKeys: string[]; ctxKeys: string[] }) {
+  const [open, setOpen] = useState(false)
+
+  const groups = [
+    { prefix: 'row',     keys: rowKeys, color: 'var(--ct-accent-400)',  label: 'Dataset row' },
+    { prefix: 'env',     keys: envKeys, color: 'var(--ct-flaky)',        label: 'Environment' },
+    { prefix: 'ctx',     keys: ctxKeys, color: 'var(--ct-pass)',         label: 'Step outputs' },
+    { prefix: 'secrets', keys: [],      color: 'var(--ct-text-3)',        label: 'Secrets' },
+  ].filter(g => g.keys.length > 0 || g.prefix === 'secrets')
+
+  return (
+    <div className="rounded-md border overflow-hidden"
+      style={{ borderColor: 'var(--ct-border)', background: 'var(--ct-surface-raised)' }}>
+      <button
+        className="w-full flex items-center justify-between px-3 py-2 text-left"
+        onClick={() => setOpen(o => !o)}>
+        <span className="text-label" style={{ color: 'var(--ct-text-2)' }}>
+          Available variables
+        </span>
+        <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 flex flex-col gap-2 border-t" style={{ borderColor: 'var(--ct-border)' }}>
+          {groups.map(g => (
+            <div key={g.prefix} className="flex flex-col gap-1">
+              <span className="text-caption font-semibold" style={{ color: 'var(--ct-text-3)' }}>{g.label}</span>
+              <div className="flex flex-wrap gap-1">
+                {g.keys.length > 0 ? g.keys.map(k => (
+                  <code key={k}
+                    className="text-caption px-1.5 py-0.5 rounded border select-all cursor-pointer"
+                    style={{ borderColor: 'var(--ct-border)', color: g.color, background: 'var(--ct-surface)', fontSize: 11 }}
+                    title="Click to copy">
+                    {`{{${g.prefix}.${k}}}`}
+                  </code>
+                )) : (
+                  <span className="text-caption" style={{ color: 'var(--ct-text-3)', fontStyle: 'italic' }}>
+                    {g.prefix === 'secrets' ? 'Use {{secrets.NAME}} for any secret defined in Settings → Secrets' : 'none configured'}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

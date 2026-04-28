@@ -24,6 +24,70 @@ function elapsed(start: string, end: string | null): string {
   return `${Math.floor(ms/60000)}m ${Math.round((ms%60000)/1000)}s`
 }
 
+type BatchGroup = { batchId: string; pipeline_name: string; project_name: string; runs: Run[] }
+
+function BatchGroupRow({ group, router, elapsed }: {
+  group: BatchGroup
+  router: ReturnType<typeof useRouter>
+  elapsed: (start: string, end: string | null) => string
+}) {
+  const [collapsed, setCollapsed] = useState(true)
+  const passedCount  = group.runs.filter(r => r.status === 'passed').length
+  const failedCount  = group.runs.filter(r => r.status === 'failed').length
+  const runningCount = group.runs.filter(r => r.status === 'running' || r.status === 'pending').length
+  const batchStatus: StepStatus = failedCount > 0 ? 'failed' : runningCount > 0 ? 'running' : 'passed'
+
+  return (
+    <div className="rounded-md border overflow-hidden"
+      style={{ borderColor: 'var(--ct-border)', borderLeftWidth: 3,
+        borderLeftColor: batchStatus === 'passed' ? 'var(--ct-pass)' : batchStatus === 'failed' ? 'var(--ct-fail)' : 'var(--ct-running)' }}>
+      <div className="flex items-center gap-4 p-4 cursor-pointer hover:bg-[var(--ct-surface-raised)]"
+        style={{ background: 'var(--ct-surface)' }}
+        onClick={() => setCollapsed(c => !c)}>
+        <StepStatusBadge status={batchStatus} showLabel={false} />
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-body font-medium" style={{ color: 'var(--ct-text-1)' }}>{group.pipeline_name}</span>
+            <span className="text-caption px-1.5 py-0.5 rounded"
+              style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--ct-accent-400)', fontSize: 10 }}>
+              ⊞ Dataset · {group.runs.length} rows
+            </span>
+            <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{group.project_name}</span>
+          </div>
+          <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+            {passedCount}/{group.runs.length} passed
+            {failedCount > 0 && <span style={{ color: 'var(--ct-fail)' }}> · {failedCount} failed</span>}
+            {runningCount > 0 && <span style={{ color: 'var(--ct-running)' }}> · {runningCount} running</span>}
+          </span>
+        </div>
+        <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
+          {collapsed ? '▼' : '▲'}
+        </span>
+      </div>
+
+      {!collapsed && group.runs.map(run => {
+        const rowLabel = run.row_data ? Object.values(run.row_data).slice(0,2).map(v => String(v).slice(0,20)).join(', ') : `Row ${(run.row_index ?? 0) + 1}`
+        return (
+          <div key={run.id}
+            onClick={() => router.push(`/runs/${run.id}`)}
+            className="flex items-center gap-3 px-4 cursor-pointer hover:bg-[var(--ct-surface-raised)] transition-colors border-t"
+            style={{ height: 36, borderColor: 'var(--ct-border)', background: 'var(--ct-surface-raised)' }}>
+            <StepStatusBadge status={run.status} showLabel={false} />
+            <span className="text-caption w-6 tabular-nums flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
+              #{(run.row_index ?? 0) + 1}
+            </span>
+            <span className="text-body flex-1 truncate" style={{ color: 'var(--ct-text-2)' }}>{rowLabel}</span>
+            <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
+              {elapsed(run.started_at, run.completed_at)}
+            </span>
+            <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>→</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function RunsPage() {
   const router = useRouter()
   const [runs,    setRuns]    = useState<Run[]>([])
@@ -42,7 +106,6 @@ export default function RunsPage() {
   useEffect(() => { load(filter) }, [filter])
 
   // Group runs: batch runs collapse under a batch header, single runs stand alone
-  type BatchGroup = { batchId: string; pipeline_name: string; project_name: string; runs: Run[] }
   const { singles, batches } = (() => {
     const batchMap = new Map<string, BatchGroup>()
     const singles: Run[] = []
@@ -127,64 +190,7 @@ export default function RunsPage() {
           }
 
           // Batch group
-          const { group } = item
-          const passedCount  = group.runs.filter(r => r.status === 'passed').length
-          const failedCount  = group.runs.filter(r => r.status === 'failed').length
-          const runningCount = group.runs.filter(r => r.status === 'running' || r.status === 'pending').length
-          const batchStatus: StepStatus = failedCount > 0 ? 'failed' : runningCount > 0 ? 'running' : 'passed'
-          const [collapsed, setCollapsed] = useState(true)
-
-          return (
-            <div key={group.batchId} className="rounded-md border overflow-hidden"
-              style={{ borderColor: 'var(--ct-border)', borderLeftWidth: 3,
-                borderLeftColor: batchStatus === 'passed' ? 'var(--ct-pass)' : batchStatus === 'failed' ? 'var(--ct-fail)' : 'var(--ct-running)' }}>
-              {/* Batch header */}
-              <div className="flex items-center gap-4 p-4 cursor-pointer hover:bg-[var(--ct-surface-raised)]"
-                style={{ background: 'var(--ct-surface)' }}
-                onClick={() => setCollapsed(c => !c)}>
-                <StepStatusBadge status={batchStatus} showLabel={false} />
-                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-body font-medium" style={{ color: 'var(--ct-text-1)' }}>{group.pipeline_name}</span>
-                    <span className="text-caption px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--ct-accent-400)', fontSize: 10 }}>
-                      ⊞ Dataset · {group.runs.length} rows
-                    </span>
-                    <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>{group.project_name}</span>
-                  </div>
-                  <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
-                    {passedCount}/{group.runs.length} passed
-                    {failedCount > 0 && <span style={{ color: 'var(--ct-fail)' }}> · {failedCount} failed</span>}
-                    {runningCount > 0 && <span style={{ color: 'var(--ct-running)' }}> · {runningCount} running</span>}
-                  </span>
-                </div>
-                <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
-                  {collapsed ? '▼' : '▲'}
-                </span>
-              </div>
-
-              {/* Expanded rows */}
-              {!collapsed && group.runs.map(run => {
-                const rowLabel = run.row_data ? Object.values(run.row_data).slice(0,2).map(v => String(v).slice(0,20)).join(', ') : `Row ${(run.row_index ?? 0) + 1}`
-                return (
-                  <div key={run.id}
-                    onClick={() => router.push(`/runs/${run.id}`)}
-                    className="flex items-center gap-3 px-4 cursor-pointer hover:bg-[var(--ct-surface-raised)] transition-colors border-t"
-                    style={{ height: 36, borderColor: 'var(--ct-border)', background: 'var(--ct-surface-raised)' }}>
-                    <StepStatusBadge status={run.status} showLabel={false} />
-                    <span className="text-caption w-6 tabular-nums flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
-                      #{(run.row_index ?? 0) + 1}
-                    </span>
-                    <span className="text-body flex-1 truncate" style={{ color: 'var(--ct-text-2)' }}>{rowLabel}</span>
-                    <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
-                      {elapsed(run.started_at, run.completed_at)}
-                    </span>
-                    <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>→</span>
-                  </div>
-                )
-              })}
-            </div>
-          )
+          return <BatchGroupRow key={item.group.batchId} group={item.group} router={router} elapsed={elapsed} />
         })}
       </div>
 

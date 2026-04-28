@@ -1,6 +1,7 @@
 SELECT
   p.id, p.name, p.description, p.runs_on, p.tags,
-  p.project_id, p.created_at, p.updated_at,
+  p.project_id, p.default_dataset_id, p.default_environment_id,
+  p.created_at, p.updated_at,
   COALESCE(
     json_agg(
       json_build_object(

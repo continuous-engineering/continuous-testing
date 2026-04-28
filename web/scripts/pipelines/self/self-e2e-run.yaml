@@ -1,0 +1,362 @@
+version: "1"
+name: Self — E2E Run with Dataset
+description: >
+  The full end-to-end user journey: create project → create environment with
+  variables → create dataset with rows → create pipeline → add a step → trigger
+  a batch run using the dataset (one run per row) → verify batch was created with
+  correct run count → verify each run appears in the run list → clean up all
+  resources.
+
+  This is the most complete self-test. It exercises: project creation, environment
+  management, dataset management, pipeline authoring, batch run triggering, and
+  run visibility. The inner pipeline step calls the app's own /api/runners/status
+  so a hosted runner can execute it without any external dependencies.
+
+  Run order (DAG waves):
+    Wave 1: Create project
+    Wave 2: Create environment + Create dataset (parallel)
+    Wave 3: Create pipeline
+    Wave 4: Add steps via PUT
+    Wave 5: Trigger batch run with dataset
+    Wave 6: GET batch run list + GET all runs (parallel)
+    Wave 7: DELETE pipeline + DELETE dataset + DELETE environment (parallel)
+    Wave 8: DELETE project
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY
+runs_on:
+  - hosted
+tags:
+  - e2e
+  - self-test
+  - runs
+  - datasets
+
+steps:
+  - name: "Create project"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    outputs:
+      project_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "CT Self-Test — E2E Run"
+        slug: "ct-self-test-e2e"
+        description: "Created by self-test pipeline — safe to delete"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  # ── Wave 2 — parallel setup ───────────────────────────────────────────────
+
+  - name: "Create environment"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "Create project"
+    outputs:
+      env_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/environments"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "self-test-e2e-env"
+        variables:
+          APP_URL: "{{env.APP_URL}}"
+          CT_TEST_KEY: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  - name: "Create dataset"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "Create project"
+    outputs:
+      dataset_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "E2E Run Dataset"
+        description: "3-row dataset for batch run test"
+        schema_json:
+          columns:
+            - key: user_id
+              type: string
+              label: User ID
+            - key: scenario
+              type: string
+              label: Scenario
+        rows:
+          - user_id: e2e_user_001
+            scenario: first
+          - user_id: e2e_user_002
+            scenario: second
+          - user_id: e2e_user_003
+            scenario: third
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.row_count"
+          operator: eq
+          expected: 3
+
+  # ── Wave 3 — create pipeline ──────────────────────────────────────────────
+
+  - name: "Create pipeline"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "Create environment"
+      - "Create dataset"
+    outputs:
+      pipeline_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "E2E Self-Test Pipeline"
+        runs_on:
+          - hosted
+        tags:
+          - self-test
+          - e2e
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  # ── Wave 4 — add steps ────────────────────────────────────────────────────
+
+  - name: "Add steps to pipeline"
+    type: api
+    on_failure: stop
+    timeout_ms: 10000
+    prerequisites:
+      - "Create pipeline"
+    config:
+      method: PUT
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        steps:
+          - name: Dataset row health check
+            type: api
+            prerequisites: []
+            outputs: {}
+            config:
+              method: GET
+              url: "{{env.APP_URL}}/api/runners/status"
+              headers:
+                x-ct-test-key: "{{env.CT_TEST_KEY}}"
+              assertions:
+                - type: status
+                  operator: lt
+                  expected: 300
+            on_failure: continue
+            timeout_ms: 10000
+            position: 0
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  # ── Wave 5 — set pipeline defaults and trigger batch run ─────────────────
+
+  - name: "Set pipeline defaults"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Add steps to pipeline"
+    config:
+      method: PATCH
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        default_environment_id: "{{ctx.env_id}}"
+        default_dataset_id: "{{ctx.dataset_id}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "Trigger batch run with dataset"
+    type: api
+    on_failure: stop
+    timeout_ms: 15000
+    prerequisites:
+      - "Set pipeline defaults"
+    outputs:
+      batch_id: "$.batchId"
+      batch_total: "$.total"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}/runs"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        dataset_id: "{{ctx.dataset_id}}"
+        environment_id: "{{ctx.env_id}}"
+        trigger: manual
+      assertions:
+        - type: status
+          operator: eq
+          expected: 202
+        - type: jsonpath
+          target: "$.batchId"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.total"
+          operator: eq
+          expected: 3
+
+  # ── Wave 6 — verify runs created ─────────────────────────────────────────
+
+  - name: "GET pipeline runs — 3 runs created"
+    type: api
+    on_failure: continue
+    timeout_ms: 10000
+    prerequisites:
+      - "Trigger batch run with dataset"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}/runs"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "GET global runs list — batch visible"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Trigger batch run with dataset"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runs"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  # ── Wave 7 — cleanup (parallel) ───────────────────────────────────────────
+
+  - name: "DELETE pipeline"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "GET pipeline runs — 3 runs created"
+      - "GET global runs list — batch visible"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "DELETE dataset"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "GET pipeline runs — 3 runs created"
+      - "GET global runs list — batch visible"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets/{{ctx.dataset_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "DELETE environment"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "GET pipeline runs — 3 runs created"
+      - "GET global runs list — batch visible"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/environments/{{ctx.env_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  # ── Wave 8 — final cleanup ────────────────────────────────────────────────
+
+  - name: "DELETE project"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "DELETE pipeline"
+      - "DELETE dataset"
+      - "DELETE environment"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300

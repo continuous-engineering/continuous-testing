@@ -19,8 +19,9 @@ export type RunContext = {
   pipelineId: string
   environmentId: string | null
   runnerId: string
-  env: Record<string, string>       // env vars (plaintext)
-  secrets: Record<string, string>   // decrypted secrets (in-memory only)
+  env: Record<string, string>        // env vars (plaintext)
+  secrets: Record<string, string>    // decrypted secrets (in-memory only)
+  row: Record<string, unknown>       // dataset row snapshot — {{row.KEY}}
 }
 
 export type StepResult = {

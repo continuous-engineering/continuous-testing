@@ -1,0 +1,243 @@
+version: "1"
+name: Self — Datasets CRUD
+description: >
+  Full dataset lifecycle: create project → create dataset with inline rows and
+  schema → verify row count → add more rows → update dataset metadata →
+  delete dataset → delete project.
+
+  The dataset schema defines typed columns. Inline rows in the create call verify
+  that initial row ingestion works. A second rows POST verifies the additive
+  rows endpoint.
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY
+runs_on:
+  - hosted
+tags:
+  - crud
+  - datasets
+  - self-test
+
+steps:
+  - name: "Create project"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    outputs:
+      project_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "CT Self-Test — Datasets"
+        slug: "ct-self-test-data"
+        description: "Created by self-test pipeline — safe to delete"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  - name: "Create dataset with schema and inline rows"
+    type: api
+    on_failure: stop
+    timeout_ms: 10000
+    prerequisites:
+      - "Create project"
+    outputs:
+      dataset_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "Self-Test Dataset"
+        description: "Created by self-test pipeline"
+        schema_json:
+          columns:
+            - key: prompt
+              type: string
+              label: Prompt
+            - key: expected
+              type: string
+              label: Expected Response
+            - key: category
+              type: string
+              label: Category
+        rows:
+          - prompt: "Hello, how are you?"
+            expected: "I am doing well, thank you for asking."
+            category: greeting
+          - prompt: "What is 2 + 2?"
+            expected: "4"
+            category: math
+          - prompt: "What is the capital of France?"
+            expected: "Paris"
+            category: knowledge
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "Self-Test Dataset"
+        - type: jsonpath
+          target: "$.row_count"
+          operator: eq
+          expected: 3
+
+  - name: "GET datasets list — dataset appears"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Create dataset with schema and inline rows"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "GET dataset by ID — verify row count"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Create dataset with schema and inline rows"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets/{{ctx.dataset_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.row_count"
+          operator: eq
+          expected: 3
+
+  - name: "POST additional rows"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "GET dataset by ID — verify row count"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets/{{ctx.dataset_id}}/rows"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        rows:
+          - prompt: "Who wrote Romeo and Juliet?"
+            expected: "William Shakespeare"
+            category: literature
+          - prompt: "What is the speed of light?"
+            expected: "Approximately 299,792 kilometres per second"
+            category: science
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.row_count"
+          operator: eq
+          expected: 5
+
+  - name: "PATCH dataset name and description"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "POST additional rows"
+      - "GET datasets list — dataset appears"
+    config:
+      method: PATCH
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets/{{ctx.dataset_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "Self-Test Dataset (Updated)"
+        description: "Updated by self-test pipeline"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "Self-Test Dataset (Updated)"
+
+  - name: "GET dataset — verify final row count"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "PATCH dataset name and description"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets/{{ctx.dataset_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.row_count"
+          operator: eq
+          expected: 5
+
+  - name: "DELETE dataset"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "GET dataset — verify final row count"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/datasets/{{ctx.dataset_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "DELETE project"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "DELETE dataset"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300

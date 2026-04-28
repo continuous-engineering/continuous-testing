@@ -6,10 +6,12 @@ import { detectCycle, StepConfigByType } from '@/lib/dag'
 import type { StepType } from '@/lib/dag'
 
 const UpdateBody = z.object({
-  name:        z.string().min(1).max(100).optional(),
-  description: z.string().max(500).optional(),
-  runs_on:     z.array(z.string()).min(1).optional(),
-  tags:        z.array(z.string()).optional(),
+  name:                   z.string().min(1).max(100).optional(),
+  description:            z.string().max(500).optional(),
+  runs_on:                z.array(z.string()).min(1).optional(),
+  tags:                   z.array(z.string()).optional(),
+  default_dataset_id:     z.string().uuid().nullable().optional(),
+  default_environment_id: z.string().uuid().nullable().optional(),
 })
 
 const StepUpsertBody = z.object({
@@ -41,8 +43,21 @@ export async function PATCH(req: Request, { params }: Params) {
     const { tenantId } = await getTenant()
     const { pipelineId } = await params
     const body = UpdateBody.parse(await req.json())
+
+    // Fetch existing to merge nullable UUID defaults (keeps current value if field absent from body)
+    const existing = await withTenant(tenantId, (q) => q<Record<string, unknown>>('pipelines/get-with-steps', [pipelineId]))
+    if (!existing.length) return err('Not found', 404)
+    const pipe = existing[0]!
+
+    const defaultDatasetId = 'default_dataset_id' in body
+      ? (body.default_dataset_id ?? null)
+      : (pipe.default_dataset_id as string | null ?? null)
+    const defaultEnvId = 'default_environment_id' in body
+      ? (body.default_environment_id ?? null)
+      : (pipe.default_environment_id as string | null ?? null)
+
     const rows = await withTenant(tenantId, (q) =>
-      q('pipelines/update', [pipelineId, body.name ?? null, body.description ?? null, body.runs_on ?? null, body.tags ?? null]),
+      q('pipelines/update', [pipelineId, body.name ?? null, body.description ?? null, body.runs_on ?? null, body.tags ?? null, defaultDatasetId, defaultEnvId]),
     )
     if (!rows.length) return err('Not found', 404)
     return ok(rows[0])

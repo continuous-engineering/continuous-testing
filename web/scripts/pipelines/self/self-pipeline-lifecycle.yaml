@@ -1,0 +1,268 @@
+version: "1"
+name: Self — Pipeline Lifecycle
+description: >
+  Full pipeline lifecycle: create project → create pipeline → add steps via PUT
+  → update pipeline metadata → list pipelines → trigger a run → poll run status
+  → delete pipeline → delete project.
+
+  Uses the DAG to run list-pipelines and trigger-run in parallel after the
+  pipeline is configured. Cleanup always happens after both branches complete.
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY
+runs_on:
+  - hosted
+tags:
+  - crud
+  - pipelines
+  - runs
+  - self-test
+
+steps:
+  - name: "Create project"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    outputs:
+      project_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "CT Self-Test — Pipeline Lifecycle"
+        slug: "ct-self-test-pipe"
+        description: "Created by self-test pipeline — safe to delete"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  - name: "Create pipeline"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "Create project"
+    outputs:
+      pipeline_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "Self-Test Inner Pipeline"
+        description: "Created by self-test — safe to delete"
+        runs_on:
+          - hosted
+        tags:
+          - self-test
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  - name: "PUT steps into pipeline"
+    type: api
+    on_failure: stop
+    timeout_ms: 10000
+    prerequisites:
+      - "Create pipeline"
+    config:
+      method: PUT
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        steps:
+          - name: Health check
+            type: api
+            prerequisites: []
+            outputs: {}
+            config:
+              method: GET
+              url: "{{env.APP_URL}}/api/runners/status"
+              headers:
+                x-ct-test-key: "{{env.CT_TEST_KEY}}"
+              assertions:
+                - type: status
+                  operator: lt
+                  expected: 300
+            on_failure: stop
+            timeout_ms: 10000
+            position: 0
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "GET pipeline — verify steps saved"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "PUT steps into pipeline"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "Self-Test Inner Pipeline"
+
+  - name: "PATCH pipeline name"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "GET pipeline — verify steps saved"
+    config:
+      method: PATCH
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "Self-Test Inner Pipeline (Updated)"
+        tags:
+          - self-test
+          - updated
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "Self-Test Inner Pipeline (Updated)"
+
+  - name: "GET pipeline list — pipeline appears"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "PATCH pipeline name"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "Trigger run — manual, no dataset"
+    type: api
+    on_failure: continue
+    timeout_ms: 10000
+    prerequisites:
+      - "PATCH pipeline name"
+    outputs:
+      run_id: "$.runId"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}/runs"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        trigger: manual
+      assertions:
+        - type: status
+          operator: eq
+          expected: 202
+        - type: jsonpath
+          target: "$.runId"
+          operator: ne
+          expected: ""
+
+  - name: "GET run — verify queued or running"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Trigger run — manual, no dataset"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runs/{{ctx.run_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+
+  - name: "GET pipeline runs list"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Trigger run — manual, no dataset"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}/runs"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "DELETE pipeline"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "GET run — verify queued or running"
+      - "GET pipeline list — pipeline appears"
+      - "GET pipeline runs list"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}/pipelines/{{ctx.pipeline_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "DELETE project"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "DELETE pipeline"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300

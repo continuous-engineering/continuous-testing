@@ -1,0 +1,144 @@
+version: "1"
+name: Self — API Smoke
+description: >
+  7 parallel GET requests to every major endpoint. Confirms the app is up,
+  auth bypass is working, and all top-level routes return 200. Run this
+  before every deployment.
+
+  All steps run in parallel — no prerequisites.
+  No dataset required.
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL   e.g. http://localhost:3000
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY env var (middleware bypass)
+
+  After import: open Pipeline Settings → set default environment to "Self-Test".
+runs_on:
+  - hosted
+tags:
+  - smoke
+  - self-test
+
+steps:
+  - name: "GET /auth/me — session endpoint"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/auth/me"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.user.id"
+          operator: ne
+          expected: ""
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "GET /projects — project list"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "GET /runs — run history"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runs"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "GET /dashboard — dashboard data"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/dashboard"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "GET /flaky — flaky test analysis"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/flaky"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "GET /coverage — coverage report"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/coverage"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: latency
+          operator: lt
+          expected: 3000
+
+  - name: "GET /runners/status — runner fleet status"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runners/status"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: latency
+          operator: lt
+          expected: 3000

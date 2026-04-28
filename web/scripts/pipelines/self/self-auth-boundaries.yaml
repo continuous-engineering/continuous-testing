@@ -1,0 +1,127 @@
+version: "1"
+name: Self — Auth Boundaries
+description: >
+  Confirms that every protected route correctly rejects unauthenticated requests
+  with 401. All steps run in parallel. These steps intentionally omit the
+  x-ct-test-key header so auth enforcement is exercised.
+
+  Also verifies that a wrong test key (not matching CT_TEST_API_KEY) is rejected.
+
+  No environment variables required — all headers are intentionally absent.
+  No dataset required.
+runs_on:
+  - hosted
+tags:
+  - auth
+  - security
+  - self-test
+
+steps:
+  - name: "Projects — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Runs — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runs"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Auth/me — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/auth/me"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Dashboard — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/dashboard"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Coverage — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/coverage"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Flaky — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/flaky"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "Runners list — no auth → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/runners"
+      headers: {}
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401
+
+  - name: "POST /projects — wrong test key → 401"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "this-is-the-wrong-key"
+      body:
+        name: "should not be created"
+        slug: "should-not-exist"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 401

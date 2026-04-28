@@ -1,0 +1,49 @@
+version: "1"
+name: Load Test — Throughput
+description: >
+  Fires one run per dataset row in parallel — use a large dataset (50–500 rows)
+  to simulate concurrent users. API step only: no semantic scoring, which would
+  add Claude latency and defeat the purpose.
+
+  Each row is a unique user session. After the batch completes, open the run
+  batch in the Runs page — elapsed time per row gives your P50/P95 distribution.
+
+  Dataset columns used:
+    {{row.user_id}}  — unique user ID per simulated user
+    {{row.chat_id}}  — unique chat session ID
+    {{row.prompt}}   — the message to send (vary for realistic load)
+
+  Environment variables: same as Functional Tests.
+  Recommended: run against dev or staging only, never production.
+
+  After import: open Pipeline Settings and set default environment + dataset.
+runs_on:
+  - hosted
+tags:
+  - load
+  - performance
+
+steps:
+  - name: Simulated user request
+    type: api
+    on_failure: continue
+    timeout_ms: 10000
+    config:
+      method: POST
+      url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      headers:
+        Content-Type: application/json
+      body:
+        appid: "{{env.APPID}}"
+        chat_id: "{{row.chat_id}}"
+        user_id: "{{row.user_id}}"
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "{{row.prompt}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+        - type: latency
+          operator: lt
+          expected: 8000

@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Project  = { id: string; name: string; slug: string }
@@ -18,6 +18,7 @@ export default function PipelinesPage() {
   const [loading,   setLoading]   = useState(true)
   const [showForm,  setShowForm]  = useState(false)
   const [creating,  setCreating]  = useState(false)
+  const [filter,    setFilter]    = useState('')
   const [form, setForm] = useState({ name: '', projectId: '' })
 
   async function load() {
@@ -33,7 +34,6 @@ export default function PipelinesPage() {
     }))
     setPipelines(all)
     setLoading(false)
-    // Default project selector to first project
     if (list[0] && !form.projectId) setForm(f => ({ ...f, projectId: list[0]!.id }))
   }
 
@@ -44,7 +44,6 @@ export default function PipelinesPage() {
     setCreating(true)
     let projectId = form.projectId
     if (!projectId) {
-      // No projects exist — create one first
       const np = await fetch('/api/projects', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'My Project', slug: slugify('my-project') }),
@@ -58,142 +57,147 @@ export default function PipelinesPage() {
     router.push(`/projects/${projectId}/pipelines/${pp.data.id}`)
   }
 
-  // Group by project
-  const byProject = projects.map(p => ({
-    project: p,
-    pipelines: pipelines.filter(pl => pl.project_id === p.id),
-  })).filter(g => g.pipelines.length > 0)
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return pipelines
+    return pipelines.filter(p =>
+      p.name.toLowerCase().includes(q) || p.project_name.toLowerCase().includes(q)
+    )
+  }, [pipelines, filter])
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-title" style={{ color: 'var(--ct-text-1)' }}>Pipelines</h1>
-          <p className="text-body mt-1" style={{ color: 'var(--ct-text-2)' }}>
-            All pipelines across your projects.
-          </p>
-        </div>
-        <button onClick={() => setShowForm(true)}
-          className="text-label px-3 py-1.5 rounded-md"
-          style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
-          + New pipeline
+    <div className="flex flex-col h-full">
+      {/* ── Toolbar ── */}
+      <div className="flex items-center gap-3 px-4 border-b flex-shrink-0"
+        style={{ height: 'var(--ct-row-h)', borderColor: 'var(--ct-border)', background: 'var(--ct-surface)' }}>
+        <h1 className="text-label font-semibold flex-shrink-0" style={{ color: 'var(--ct-text-1)' }}>
+          Pipelines
+        </h1>
+        <span className="text-caption flex-shrink-0" style={{ color: 'var(--ct-text-3)' }}>
+          {loading ? '…' : `${pipelines.length}`}
+        </span>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Filter…"
+          className="text-body flex-1 min-w-0 px-2 py-0.5 rounded border"
+          style={{
+            background: 'var(--ct-surface-raised)',
+            borderColor: 'var(--ct-border)',
+            color: 'var(--ct-text-1)',
+            outline: 'none',
+            maxWidth: 260,
+          }}
+        />
+        <div className="flex-1" />
+        <button onClick={() => setShowForm(v => !v)}
+          className="text-label px-3 rounded flex-shrink-0"
+          style={{
+            height: 26,
+            background: showForm ? 'var(--ct-surface-raised)' : 'var(--ct-accent-500)',
+            color: showForm ? 'var(--ct-text-2)' : '#fff',
+            border: showForm ? '1px solid var(--ct-border)' : 'none',
+          }}>
+          {showForm ? 'Cancel' : '+ New pipeline'}
         </button>
       </div>
 
-      {/* Create form */}
+      {/* ── Create form (inline, compact) ── */}
       {showForm && (
-        <div className="rounded-md border p-5 flex flex-col gap-4"
-          style={{ borderColor: 'var(--ct-border)', background: 'var(--ct-surface)' }}>
-          <h2 className="text-heading" style={{ color: 'var(--ct-text-1)' }}>New pipeline</h2>
-
-          {projects.length === 0 && (
-            <div className="rounded-md border p-3" style={{ borderColor: 'var(--ct-flaky)', background: 'rgba(245,158,11,0.06)' }}>
-              <p className="text-body" style={{ color: 'var(--ct-flaky)' }}>
-                You have no projects yet. Creating a pipeline will also create a default project.
-              </p>
-              <button onClick={() => { setShowForm(false); router.push('/projects') }}
-                className="text-label mt-2 underline" style={{ color: 'var(--ct-flaky)' }}>
-                Create a project first →
-              </button>
-            </div>
-          )}
-
+        <div className="flex items-center gap-3 px-4 border-b flex-shrink-0"
+          style={{ height: 44, borderColor: 'var(--ct-border)', background: 'var(--ct-surface-raised)' }}>
           {projects.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Project</label>
-              <select value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}
-                className="text-body px-3 py-2 rounded-md border"
-                style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)' }}>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
+            <select value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}
+              className="text-body px-2 py-0.5 rounded border flex-shrink-0"
+              style={{ background: 'var(--ct-surface)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)', maxWidth: 160 }}>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           )}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-label" style={{ color: 'var(--ct-text-2)' }}>Pipeline name</label>
-            <input autoFocus value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              onKeyDown={e => e.key === 'Enter' && create()}
-              placeholder="e.g. Checkout flow, User registration, API smoke test"
-              className="text-body px-3 py-2 rounded-md border"
-              style={{ background: 'var(--ct-surface-raised)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)', outline: 'none' }} />
-          </div>
-
-          <div className="flex gap-2">
-            <button onClick={create} disabled={creating || !form.name.trim()}
-              className="text-label px-3 py-2 rounded-md disabled:opacity-50"
-              style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
-              {creating ? 'Creating…' : 'Create & open'}
-            </button>
-            <button onClick={() => { setShowForm(false); setForm(f => ({ ...f, name: '' })) }}
-              className="text-label px-3 py-2 rounded-md border"
-              style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-2)' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && pipelines.length === 0 && !showForm && (
-        <div className="rounded-md border p-10 text-center flex flex-col gap-3"
-          style={{ borderColor: 'var(--ct-border)', borderStyle: 'dashed' }}>
-          <p className="text-body" style={{ color: 'var(--ct-text-2)' }}>No pipelines yet.</p>
-          <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
-            A pipeline is a sequence of API, UI, or AI test steps that run together.
-          </p>
-          <button onClick={() => setShowForm(true)}
-            className="text-label px-4 py-2 rounded-md self-center"
-            style={{ background: 'var(--ct-accent-500)', color: '#fff' }}>
-            + Create your first pipeline
+          <input autoFocus value={form.name}
+            onChange={e => setForm({ ...form, name: e.target.value })}
+            onKeyDown={e => e.key === 'Enter' && create()}
+            placeholder="Pipeline name"
+            className="text-body flex-1 min-w-0 px-2 py-0.5 rounded border"
+            style={{ background: 'var(--ct-surface)', borderColor: 'var(--ct-border)', color: 'var(--ct-text-1)', outline: 'none', maxWidth: 320 }}
+          />
+          <button onClick={create} disabled={creating || !form.name.trim()}
+            className="text-label px-3 rounded flex-shrink-0 disabled:opacity-40"
+            style={{ height: 26, background: 'var(--ct-accent-500)', color: '#fff' }}>
+            {creating ? 'Creating…' : 'Create'}
           </button>
+          {projects.length === 0 && (
+            <span className="text-caption" style={{ color: 'var(--ct-flaky)' }}>
+              No projects —{' '}
+              <button onClick={() => router.push('/projects')} className="underline">create one first</button>
+            </span>
+          )}
         </div>
       )}
 
-      {/* Pipelines grouped by project */}
-      {byProject.map(({ project, pipelines: pls }) => (
-        <section key={project.id} className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <button onClick={() => router.push(`/projects/${project.id}`)}
-              className="text-heading hover:underline" style={{ color: 'var(--ct-text-1)' }}>
-              {project.name}
-            </button>
-            <button onClick={() => router.push(`/projects/${project.id}`)}
-              className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
-              View project →
+      {/* ── Table header ── */}
+      {!loading && pipelines.length > 0 && (
+        <div className="flex items-center border-b flex-shrink-0 sticky top-0 z-10"
+          style={{ height: 'var(--ct-row-h)', borderColor: 'var(--ct-border)', background: 'var(--ct-surface)', paddingInline: 'var(--ct-row-px)' }}>
+          <span className="text-label uppercase tracking-wide flex-1 min-w-0 truncate" style={{ color: 'var(--ct-text-3)' }}>Pipeline</span>
+          <span className="text-label uppercase tracking-wide flex-shrink-0 w-36" style={{ color: 'var(--ct-text-3)' }}>Project</span>
+          <span className="text-label uppercase tracking-wide flex-shrink-0 w-16 text-right" style={{ color: 'var(--ct-text-3)' }}>Steps</span>
+          <span className="text-label uppercase tracking-wide flex-shrink-0 w-24 text-right" style={{ color: 'var(--ct-text-3)' }}>Runner</span>
+        </div>
+      )}
+
+      {/* ── Rows ── */}
+      <div className="flex-1 overflow-y-auto">
+        {loading && (
+          <div className="ct-row" style={{ color: 'var(--ct-text-3)' }}>
+            <span className="text-body">Loading…</span>
+          </div>
+        )}
+
+        {!loading && pipelines.length === 0 && !showForm && (
+          <div className="flex flex-col items-center justify-center gap-3 p-12" style={{ color: 'var(--ct-text-3)' }}>
+            <p className="text-body">No pipelines yet.</p>
+            <p className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
+              A pipeline is a sequence of API, UI, or AI test steps that run together.
+            </p>
+            <button onClick={() => setShowForm(true)}
+              className="text-label px-4 rounded"
+              style={{ height: 28, background: 'var(--ct-accent-500)', color: '#fff' }}>
+              + Create your first pipeline
             </button>
           </div>
+        )}
 
-          <div className="flex flex-col gap-2">
-            {pls.map(p => (
-              <div key={p.id}
-                onClick={() => router.push(`/projects/${p.project_id}/pipelines/${p.id}`)}
-                className="rounded-md border p-4 flex items-center gap-4 cursor-pointer hover:bg-[var(--ct-surface-raised)] transition-colors"
-                style={{ borderColor: 'var(--ct-border)', background: 'var(--ct-surface)' }}>
-                <div className="flex-1 min-w-0">
-                  <span className="text-body font-medium" style={{ color: 'var(--ct-text-1)' }}>{p.name}</span>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>
-                    {(p as Record<string,unknown>).step_count as number ?? 0} steps
-                  </span>
-                  <div className="flex gap-1">
-                    {(p.runs_on ?? ['hosted']).map(tag => (
-                      <span key={tag} className="text-caption px-1.5 py-0.5 rounded border"
-                        style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-3)', fontSize: 11 }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <span className="text-caption" style={{ color: 'var(--ct-text-3)' }}>→</span>
-                </div>
-              </div>
-            ))}
+        {filtered.map(p => (
+          <div key={p.id}
+            className="ct-row cursor-pointer"
+            style={{ gap: 'var(--ct-row-gap)', paddingInline: 'var(--ct-row-px)' }}
+            onClick={() => router.push(`/projects/${p.project_id}/pipelines/${p.id}`)}>
+            <span className="text-body flex-1 min-w-0 truncate font-medium" style={{ color: 'var(--ct-text-1)' }}>
+              {p.name}
+            </span>
+            <span className="text-body flex-shrink-0 w-36 truncate" style={{ color: 'var(--ct-text-2)' }}>
+              {p.project_name}
+            </span>
+            <span className="text-body flex-shrink-0 w-16 text-right tabular-nums" style={{ color: 'var(--ct-text-3)' }}>
+              {(p as Record<string, unknown>).step_count as number ?? 0}
+            </span>
+            <div className="flex-shrink-0 w-24 flex justify-end gap-1">
+              {(p.runs_on ?? ['hosted']).map(tag => (
+                <span key={tag} className="text-caption px-1.5 rounded border"
+                  style={{ borderColor: 'var(--ct-border)', color: 'var(--ct-text-3)', fontSize: 11, lineHeight: '18px' }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
           </div>
-        </section>
-      ))}
+        ))}
 
-      {loading && <p className="text-body" style={{ color: 'var(--ct-text-2)' }}>Loading…</p>}
+        {!loading && filter && filtered.length === 0 && (
+          <div className="ct-row" style={{ color: 'var(--ct-text-3)' }}>
+            <span className="text-body">No pipelines match &ldquo;{filter}&rdquo;</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

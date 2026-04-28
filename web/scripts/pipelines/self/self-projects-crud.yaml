@@ -1,0 +1,194 @@
+version: "1"
+name: Self — Projects CRUD
+description: >
+  Full create → read → list → update → verify → delete → verify-gone lifecycle
+  for the Projects resource. Steps are sequential — each depends on the previous.
+
+  Creates a project with slug "ct-self-test-proj", runs all assertions, then
+  deletes it. The final step asserts the deleted project returns 404.
+
+  Environment variables required:
+    {{env.APP_URL}}     — the app's own URL
+    {{env.CT_TEST_KEY}} — value of CT_TEST_API_KEY
+runs_on:
+  - hosted
+tags:
+  - crud
+  - projects
+  - self-test
+
+steps:
+  - name: "Create project"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    outputs:
+      project_id: "$.id"
+    config:
+      method: POST
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        name: "CT Self-Test Project"
+        slug: "ct-self-test-proj"
+        description: "Created by self-test pipeline — safe to delete"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 201
+        - type: jsonpath
+          target: "$.id"
+          operator: ne
+          expected: ""
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "CT Self-Test Project"
+
+  - name: "GET project by ID"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "Create project"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.id"
+          operator: eq
+          expected: "{{ctx.project_id}}"
+        - type: jsonpath
+          target: "$.name"
+          operator: eq
+          expected: "CT Self-Test Project"
+
+  - name: "GET projects list — project appears"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "Create project"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+
+  - name: "PATCH project description"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "GET project by ID"
+      - "GET projects list — project appears"
+    config:
+      method: PATCH
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        description: "Updated by self-test pipeline"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.description"
+          operator: eq
+          expected: "Updated by self-test pipeline"
+
+  - name: "PATCH project labels and owner"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "PATCH project description"
+    config:
+      method: PATCH
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        Content-Type: application/json
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      body:
+        owner: "ct-self-test-runner"
+        labels:
+          - self-test
+          - automated
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.owner"
+          operator: eq
+          expected: "ct-self-test-runner"
+
+  - name: "GET project — verify all updates persisted"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "PATCH project labels and owner"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 200
+        - type: jsonpath
+          target: "$.description"
+          operator: eq
+          expected: "Updated by self-test pipeline"
+        - type: jsonpath
+          target: "$.owner"
+          operator: eq
+          expected: "ct-self-test-runner"
+
+  - name: "DELETE project"
+    type: api
+    on_failure: stop
+    timeout_ms: 8000
+    prerequisites:
+      - "GET project — verify all updates persisted"
+    config:
+      method: DELETE
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+
+  - name: "GET deleted project — must return 404"
+    type: api
+    on_failure: continue
+    timeout_ms: 8000
+    prerequisites:
+      - "DELETE project"
+    config:
+      method: GET
+      url: "{{env.APP_URL}}/api/projects/{{ctx.project_id}}"
+      headers:
+        x-ct-test-key: "{{env.CT_TEST_KEY}}"
+      assertions:
+        - type: status
+          operator: eq
+          expected: 404

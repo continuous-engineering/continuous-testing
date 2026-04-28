@@ -32,3 +32,13 @@ How about the planned feature to implement using the phi? Is it already built, i
 We are running the current project via docker containers. I want to review entire app - if there are any more templates/todos/mocks or not yet implemented features. And do a review using a role - evaluate various roles using this application, and their multiple journeys (Document these journeys), and review the app walking wearing that role. Document the issues found.
 
 ---
+
+## 2026-04-14 10:03:49
+[Context resumed from previous session] Expand functional-tests.yaml — was too shallow (single dataset-driven step). Rewrote with 15 named embedded functional test steps across: core (3), task (3), format (2), edge (3), quality (2), ops (2). All steps parallel, no dataset required, threshold 0.65–0.70.
+
+---
+
+## 2026-04-14 10:15:00
+Do not just concentrate on AI. We do not have any agents to test. Want the complete app to be tested. Complete app needs to be tested into every possible user journey. Build for a complete scenario testing.
+
+---

@@ -1,0 +1,40 @@
+version: "1"
+name: Agent Smoke Test
+description: >
+  Single API call to confirm the agent endpoint is reachable and responding
+  within latency budget. Run this before every deployment.
+  No dataset required — single run only.
+runs_on:
+  - hosted
+tags:
+  - smoke
+  - health
+
+steps:
+  - name: Health check — agent endpoint
+    type: api
+    on_failure: stop
+    timeout_ms: 10000
+    config:
+      method: POST
+      url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      headers:
+        Content-Type: application/json
+      body:
+        appid: "{{env.APPID}}"
+        chat_id: smoke_test
+        user_id: ct_smoke_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: ping
+      assertions:
+        - type: status
+          operator: lt
+          expected: 300
+        - type: latency
+          operator: lt
+          expected: 8000
+        - type: jsonpath
+          target: "$.msg"
+          operator: ne
+          expected: ""

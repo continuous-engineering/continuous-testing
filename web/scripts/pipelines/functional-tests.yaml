@@ -1,0 +1,494 @@
+version: "1"
+name: Functional Tests
+description: >
+  15 named functional test steps — one per capability dimension. All steps run
+  in parallel (no prerequisites). Each step is a single-turn AI evaluation:
+  the agent response is scored semantically against the expected response at the
+  configured threshold.
+
+  No dataset required — prompts and expected responses are embedded directly.
+  Set default environment in Pipeline Settings before running.
+
+  Environment variables used:
+    {{env.BASE_URL}}     — agent base URL   e.g. https://dev-athenae360.aviralabs.ai
+    {{env.AGENT_PATH}}   — endpoint path    e.g. api/agent_ops_core_with_db
+    {{env.APPID}}        — application ID
+    {{env.WORKSPACE_ID}} — workspace ID
+
+  Categories covered:
+    core    (3) — greeting, capability declaration, help routing
+    task    (3) — summarisation, structured output, step-by-step guidance
+    format  (2) — bullet list, professional email
+    edge    (3) — empty-ish prompt, very long input, special characters
+    quality (2) — factual accuracy, polite refusal of out-of-scope request
+    ops     (2) — task prioritisation, status report generation
+
+  After import: open Pipeline Settings and set default environment.
+runs_on:
+  - hosted
+tags:
+  - functional
+  - regression
+
+steps:
+  # ── CORE ──────────────────────────────────────────────────────────────────
+
+  - name: "func_001 — Greeting and welcome"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "Hello! I'm new here. Can you introduce yourself and tell me what you do?"
+      expected_response: >
+        Hello! I'm an AI assistant here to help you. I can assist with questions,
+        tasks, analysis, and guidance related to your work. Feel free to ask me
+        anything — I'm here to help you get things done efficiently.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_001
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "Hello! I'm new here. Can you introduce yourself and tell me what you do?"
+      response_path: msg
+
+  - name: "func_002 — Capability declaration"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "What kinds of tasks can you help me with?"
+      expected_response: >
+        I can help with a wide range of tasks including answering questions,
+        summarising information, writing and editing content, analysing data,
+        providing step-by-step guidance, and assisting with planning and
+        decision-making. Let me know what you need and I'll do my best to assist.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_002
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "What kinds of tasks can you help me with?"
+      response_path: msg
+
+  - name: "func_003 — Help routing — escalation signal"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        I'm having a critical production issue — our main service is down and
+        I don't know who to contact. What should I do right now?
+      expected_response: >
+        For a critical production outage, act immediately: alert your on-call
+        engineer or incident response team, check your monitoring dashboards for
+        error signals, and follow your incident runbook. If you don't have one,
+        escalate to your manager and engineering lead now. Do not wait — every
+        minute of downtime has business impact.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_003
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          I'm having a critical production issue — our main service is down and
+          I don't know who to contact. What should I do right now?
+      response_path: msg
+
+  # ── TASK ──────────────────────────────────────────────────────────────────
+
+  - name: "func_004 — Summarisation"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        Please summarise this in two sentences: "The quarterly review revealed
+        that customer satisfaction scores improved by 12% compared to the
+        previous quarter, driven primarily by faster response times in support
+        tickets and a new self-service knowledge base that deflected 30% of
+        inbound queries. However, churn rate increased slightly in the enterprise
+        segment, attributed to a pricing restructure that went into effect in
+        month two of the quarter."
+      expected_response: >
+        Customer satisfaction improved 12% this quarter, driven by faster support
+        response times and a new self-service knowledge base that deflected 30%
+        of queries. Enterprise churn increased slightly due to a pricing
+        restructure introduced mid-quarter.
+      threshold: 0.70
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_004
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          Please summarise this in two sentences: "The quarterly review revealed
+          that customer satisfaction scores improved by 12% compared to the
+          previous quarter, driven primarily by faster response times in support
+          tickets and a new self-service knowledge base that deflected 30% of
+          inbound queries. However, churn rate increased slightly in the enterprise
+          segment, attributed to a pricing restructure that went into effect in
+          month two of the quarter."
+      response_path: msg
+
+  - name: "func_005 — Step-by-step guidance"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "Walk me through how to do a root cause analysis for a recurring bug."
+      expected_response: >
+        Start by reproducing the bug consistently and documenting the exact
+        conditions. Then gather logs, traces, and metrics from around the time
+        of failure. Use the 5 Whys or fishbone diagram to trace from symptom
+        to root cause. Identify whether the issue is in code, configuration,
+        infrastructure, or process. Fix the root cause — not just the symptom —
+        and add a regression test to prevent recurrence. Finally, write a brief
+        postmortem to share learnings with the team.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_005
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "Walk me through how to do a root cause analysis for a recurring bug."
+      response_path: msg
+
+  - name: "func_006 — Structured output — comparison table"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        Compare REST and GraphQL APIs across three dimensions: flexibility,
+        performance, and learning curve. Present as a structured comparison.
+      expected_response: >
+        REST: Flexibility — multiple fixed endpoints, less flexible for varied
+        clients; Performance — can over-fetch or under-fetch data;
+        Learning curve — simpler, widely understood.
+        GraphQL: Flexibility — single endpoint, clients request exactly what
+        they need; Performance — precise data fetching reduces payload size;
+        Learning curve — steeper, requires schema design and query knowledge.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_006
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          Compare REST and GraphQL APIs across three dimensions: flexibility,
+          performance, and learning curve. Present as a structured comparison.
+      response_path: msg
+
+  # ── FORMAT ────────────────────────────────────────────────────────────────
+
+  - name: "func_007 — Bullet list output"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "List the five most important things to check before deploying to production."
+      expected_response: >
+        - All tests pass (unit, integration, end-to-end)
+        - Database migrations have been reviewed and tested on a staging environment
+        - Feature flags are correctly configured for the rollout strategy
+        - Monitoring and alerting are in place for the new code paths
+        - A rollback plan is defined and the team is ready to execute it
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_007
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "List the five most important things to check before deploying to production."
+      response_path: msg
+
+  - name: "func_008 — Professional email composition"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        Write a brief professional email to a client explaining that their
+        feature request has been prioritised for next quarter's roadmap.
+      expected_response: >
+        Subject: Your Feature Request — Roadmap Update
+
+        Dear [Client Name],
+
+        Thank you for your feature request. I'm pleased to let you know that
+        after our roadmap review, your request has been prioritised for next
+        quarter's development cycle.
+
+        We'll keep you updated as we move into planning and implementation.
+        Please don't hesitate to reach out if you have any questions in the
+        meantime.
+
+        Best regards,
+        [Your Name]
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_008
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          Write a brief professional email to a client explaining that their
+          feature request has been prioritised for next quarter's roadmap.
+      response_path: msg
+
+  # ── EDGE ──────────────────────────────────────────────────────────────────
+
+  - name: "func_009 — Minimal input — single word"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "Help"
+      expected_response: >
+        Of course! I'm here to help. Could you let me know what you need
+        assistance with? Feel free to describe your question or task and
+        I'll do my best to assist you.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_009
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "Help"
+      response_path: msg
+
+  - name: "func_010 — Long input handling"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        I need your help with something quite complex. We have a distributed
+        microservices architecture with 14 services. Recently we've been seeing
+        intermittent timeouts between the auth service and the user-profile
+        service. The timeouts happen roughly every 45 minutes and last about
+        2 minutes each time. We've checked the network — no packet loss. We've
+        checked the auth service logs — nothing unusual. We've checked the
+        user-profile service logs — nothing unusual. However, when we look at
+        the database connection pool on the user-profile service, we notice that
+        connections spike to the maximum (20) just before the timeout window.
+        After the timeout window, connections drop back to normal (3–5). The
+        user-profile service connects to a PostgreSQL RDS instance. We're using
+        connection pooling via PgBouncer in transaction mode. The auth service
+        calls user-profile via HTTP with a 5-second timeout. What could be
+        causing this and how should we investigate?
+      expected_response: >
+        This pattern — connection pool exhaustion every ~45 minutes, with
+        2-minute windows — strongly suggests a long-running query or transaction
+        holding connections until they time out. In PgBouncer transaction mode,
+        connections are returned to the pool after each transaction, so the spike
+        points to a query that takes longer than expected, holding 20 connections
+        until PostgreSQL's idle timeout or your app's query timeout fires.
+        Investigate: enable slow query logging in PostgreSQL (log_min_duration_statement),
+        check for table locks or autovacuum contention, review whether any
+        background jobs run on that 45-minute cycle, and consider whether the
+        PgBouncer pool size (20) is too low for burst traffic. Increasing
+        max_client_conn in PgBouncer or reducing query timeout aggressiveness
+        may relieve the symptom while you find the root cause.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_010
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          I need your help with something quite complex. We have a distributed
+          microservices architecture with 14 services. Recently we've been seeing
+          intermittent timeouts between the auth service and the user-profile
+          service. The timeouts happen roughly every 45 minutes and last about
+          2 minutes each time. We've checked the network — no packet loss. We've
+          checked the auth service logs — nothing unusual. We've checked the
+          user-profile service logs — nothing unusual. However, when we look at
+          the database connection pool on the user-profile service, we notice that
+          connections spike to the maximum (20) just before the timeout window.
+          After the timeout window, connections drop back to normal (3–5). The
+          user-profile service connects to a PostgreSQL RDS instance. We're using
+          connection pooling via PgBouncer in transaction mode. The auth service
+          calls user-profile via HTTP with a 5-second timeout. What could be
+          causing this and how should we investigate?
+      response_path: msg
+
+  - name: "func_011 — Special characters in input"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "What's the diff between `async/await` and Promises in JS? Show me an example with <code> and & symbols."
+      expected_response: >
+        Promises and async/await are both ways to handle asynchronous operations
+        in JavaScript. Async/await is syntactic sugar over Promises — it makes
+        async code read like synchronous code. A Promise chains .then() and
+        .catch() handlers; async/await uses try/catch with the await keyword
+        to pause execution until the Promise resolves. Both approaches are
+        equivalent in capability; async/await is generally preferred for
+        readability.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_011
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "What's the diff between `async/await` and Promises in JS? Show me an example with <code> and & symbols."
+      response_path: msg
+
+  # ── QUALITY ───────────────────────────────────────────────────────────────
+
+  - name: "func_012 — Factual accuracy — well-known fact"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "What does HTTP status code 429 mean and when would you see it?"
+      expected_response: >
+        HTTP 429 means Too Many Requests — the client has sent more requests
+        than the server is willing to allow in a given time window. You see it
+        when an API enforces rate limiting. The server may include a
+        Retry-After header indicating how long to wait before retrying.
+        Common in public APIs, authentication endpoints, and any service
+        protecting against abuse or overload.
+      threshold: 0.70
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_012
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "What does HTTP status code 429 mean and when would you see it?"
+      response_path: msg
+
+  - name: "func_013 — Out-of-scope request — polite refusal"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: "Can you book a flight to Paris for me and charge my credit card?"
+      expected_response: >
+        I'm not able to book flights or process payments — I don't have access
+        to booking systems or your financial information. For flight bookings,
+        use a travel platform such as your company's preferred travel tool,
+        or contact your travel coordinator. Is there something else I can help
+        you with?
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_013
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: "Can you book a flight to Paris for me and charge my credit card?"
+      response_path: msg
+
+  # ── OPS ───────────────────────────────────────────────────────────────────
+
+  - name: "func_014 — Task prioritisation framework"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        I have 6 tasks this week: fix a P1 bug, write documentation for a
+        feature that shipped last month, review 3 pull requests, attend a
+        planning meeting, set up a new CI pipeline, and respond to customer
+        emails. How should I prioritise these?
+      expected_response: >
+        Start with the P1 bug — production issues block users and take priority
+        over everything. Next, respond to customer emails — customer-facing
+        issues are time-sensitive and trust-eroding if delayed. Attend the
+        planning meeting — this is calendar-fixed and affects the whole team.
+        Then review pull requests — blocking your teammates compounds their
+        delay. Set up the CI pipeline next — important for quality but not
+        blocking anyone right now. Documentation for the shipped feature is
+        the lowest urgency; schedule a block later in the week or next week
+        if you run short.
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_014
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          I have 6 tasks this week: fix a P1 bug, write documentation for a
+          feature that shipped last month, review 3 pull requests, attend a
+          planning meeting, set up a new CI pipeline, and respond to customer
+          emails. How should I prioritise these?
+      response_path: msg
+
+  - name: "func_015 — Status report generation"
+    type: ai
+    on_failure: continue
+    timeout_ms: 15000
+    config:
+      prompt: >
+        Generate a weekly engineering status update based on the following:
+        Completed — migrated auth service to JWT tokens, fixed 3 P2 bugs,
+        deployed v2.4.1 to production.
+        In progress — rebuilding the notification pipeline (60% done).
+        Blocked — data export feature waiting on legal approval for PII handling.
+        Next week — complete notification pipeline, begin load testing.
+      expected_response: >
+        Weekly Engineering Update
+
+        Completed:
+        - Migrated auth service to JWT tokens
+        - Resolved 3 P2 bugs
+        - Deployed v2.4.1 to production
+
+        In Progress:
+        - Notification pipeline rebuild — 60% complete
+
+        Blocked:
+        - Data export feature: awaiting legal approval on PII handling approach
+
+        Next Week:
+        - Complete notification pipeline and merge
+        - Begin load testing phase
+      threshold: 0.65
+      agent_url: "{{env.BASE_URL}}/{{env.AGENT_PATH}}"
+      body_template:
+        appid: "{{env.APPID}}"
+        chat_id: func_015
+        user_id: ct_func_runner
+        workspace_id: "{{env.WORKSPACE_ID}}"
+        action: playground
+        message: >
+          Generate a weekly engineering status update based on the following:
+          Completed — migrated auth service to JWT tokens, fixed 3 P2 bugs,
+          deployed v2.4.1 to production.
+          In progress — rebuilding the notification pipeline (60% done).
+          Blocked — data export feature waiting on legal approval for PII handling.
+          Next week — complete notification pipeline, begin load testing.
+      response_path: msg
